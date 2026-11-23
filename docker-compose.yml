@@ -47,7 +47,7 @@ services:
   watchtower:   # actualiza solo la app cuando se publica una versión nueva
     image: containrrr/watchtower
     restart: always
-    command: --interval 300 --cleanup app
+    command: --interval 300 --cleanup hub-app-1
     volumes: ["/var/run/docker.sock:/var/run/docker.sock"]
     environment:
       REPO_USER: ${GHCR_USER:-}
