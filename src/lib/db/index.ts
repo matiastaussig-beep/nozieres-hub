@@ -36,7 +36,8 @@ function initDb(database: Database.Database, existed: boolean) {
 
     runMigrations(database);
 
-    // Datos iniciales sólo si la base está vacía
+    // Datos iniciales sólo si la base está vacía (en una transacción exclusiva: varios procesos, como el build de Next, abren la base a la vez)
+    const sembrar = database.transaction(() => {
     const n = (sql: string) => (database.prepare(sql).get() as { c: number }).c;
     if (n('SELECT COUNT(*) c FROM sucursales') === 0) {
         const ins = database.prepare('INSERT INTO sucursales (nombre, localidad, direccion) VALUES (?, ?, ?)');
@@ -63,6 +64,8 @@ function initDb(database: Database.Database, existed: boolean) {
         }
         void r;
     }
+    });
+    sembrar.immediate();
 }
 
 function open() {
