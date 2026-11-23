@@ -47,6 +47,10 @@ function initDb(database: Database.Database, existed: boolean) {
         database.prepare(`INSERT INTO configuracion_puntos (id, puntos_base_servicio, multiplicador_campana, nombre_campana, activa_campana)
                           VALUES (1, 100, 1.0, 'Fidelidad Nozieres', 0)`).run();
     }
+    // Autorreparación: todo vehículo debe tener un titular vigente (portal del cliente y traspaso de dominio dependen de eso)
+    database.exec(`INSERT INTO vehiculo_propietarios (vehiculo_id, cliente_id, desde, motivo)
+        SELECT v.id, v.cliente_id, COALESCE((SELECT MIN(date(o.fecha)) FROM ordenes_trabajo o WHERE o.vehiculo_id = v.id), date('now','-3 hours')), 'alta'
+        FROM vehiculos v WHERE NOT EXISTS (SELECT 1 FROM vehiculo_propietarios p WHERE p.vehiculo_id = v.id AND p.hasta IS NULL)`);
     if (n('SELECT COUNT(*) c FROM usuarios') === 0) {
         const pass = process.env.INITIAL_ADMIN_PASSWORD || crypto.randomBytes(9).toString('base64url');
         const r = database.prepare(`INSERT INTO usuarios (nombre, username, password_hash, rol, debe_cambiar_clave) VALUES (?,?,?,?,1)`)

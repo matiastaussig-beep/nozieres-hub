@@ -1,0 +1,14 @@
+node_modules
+.next
+*.db
+*.db-shm
+*.db-wal
+backups/
+uploads/
+.env
+.env.*
+!.env.example
+CLAVES_INICIALES.txt
+.auth_secret
+*.bat
+tsconfig.tsbuildinfo

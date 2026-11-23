@@ -182,15 +182,22 @@ export async function getVehiculos(query: string = ''): Promise<Vehiculo[]> {
 
 export async function createVehiculo(formData: FormData) {
     await requirePermiso('vehiculos.editar');
-    const patente = formData.get('patente') as string;
+    // Misma escritura siempre ("ab 123 cd" -> "AB123CD") para que el historial por dominio no se parta
+    const patente = String(formData.get('patente') || '').toUpperCase().replace(/\s+/g, '');
     const marca = formData.get('marca') as string;
     const modelo = formData.get('modelo') as string;
     const anio = formData.get('anio') ? parseInt(formData.get('anio') as string) : null;
     const cliente_id = parseInt(formData.get('cliente_id') as string);
     const tipo_vehiculo = formData.get('tipo_vehiculo') as string || 'Auto';
+    if (!patente) throw new Error('Falta la patente');
 
-    const stmt = db.prepare('INSERT INTO vehiculos (patente, marca, modelo, anio, cliente_id, tipo_vehiculo) VALUES (?, ?, ?, ?, ?, ?)');
-    stmt.run(patente, marca, modelo, anio, cliente_id, tipo_vehiculo);
+    db.transaction(() => {
+        const r = db.prepare('INSERT INTO vehiculos (patente, marca, modelo, anio, cliente_id, tipo_vehiculo) VALUES (?, ?, ?, ?, ?, ?)')
+            .run(patente, marca, modelo, anio, cliente_id, tipo_vehiculo);
+        // Titular actual del dominio: sin esto el portal del cliente y el traspaso no lo ven
+        db.prepare("INSERT INTO vehiculo_propietarios (vehiculo_id, cliente_id, desde, motivo) VALUES (?, ?, date('now','-3 hours'), 'alta')")
+            .run(r.lastInsertRowid, cliente_id);
+    })();
 
     revalidatePath('/vehiculos');
 }
