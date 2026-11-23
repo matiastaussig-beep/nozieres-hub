@@ -1,0 +1,12 @@
+node_modules
+.next
+.git
+*.db
+*.db-shm
+*.db-wal
+backups
+uploads
+.env*
+CLAVES_INICIALES.txt
+.auth_secret
+*.bat
