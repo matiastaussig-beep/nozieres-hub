@@ -11,8 +11,20 @@ function estandares() {
     return { auto: g('tiempo_std_auto', 25), camioneta: g('tiempo_std_camioneta', 25), camion: g('tiempo_std_camion', 90) } as Record<string, number>;
 }
 
-/** Productividad por técnico en un período. Una orden hecha en equipo cuenta para cada técnico participante. */
-export function productividad(o: { desde: string; hasta: string; sucursales: number[] }) {
+function diaMenos(f: string, n: number) { const d = new Date(f + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() - n); return d.toISOString().slice(0, 10); }
+
+/** Productividad por técnico en un período, con comparación contra el período anterior de igual largo. */
+export function productividad(o: { desde: string; hasta: string; sucursales: number[] }, conAnterior = true): ReturnType<typeof calcular> & { anterior: ReturnType<typeof calcular> | null } {
+    const actual = calcular(o);
+    let anterior: ReturnType<typeof calcular> | null = null;
+    if (conAnterior) {
+        const dias = Math.round((new Date(o.hasta + 'T12:00:00Z').getTime() - new Date(o.desde + 'T12:00:00Z').getTime()) / 86400000) + 1;
+        anterior = calcular({ desde: diaMenos(o.desde, dias), hasta: diaMenos(o.desde, 1), sucursales: o.sucursales });
+    }
+    return { ...actual, anterior };
+}
+
+function calcular(o: { desde: string; hasta: string; sucursales: number[] }) {
     const std = estandares();
     const rows = db.prepare(`SELECT ot.id, ot.sucursal_id, date(ot.fecha) dia, ot.tecnico_asignado t, ot.iniciada_at, ot.cerrada_at, ot.hora_ingreso, ot.hora_fin_real, v.tipo_vehiculo
         FROM ordenes_trabajo ot JOIN vehiculos v ON v.id = ot.vehiculo_id

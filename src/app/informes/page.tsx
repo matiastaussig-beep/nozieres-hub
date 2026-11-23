@@ -15,6 +15,11 @@ export default async function Informes({ searchParams }: { searchParams: Promise
     const hasta = re.test(sp.hasta || '') ? sp.hasta! : hoy;
     const sucs = sucursalesVisibles(ses);
     const p = productividad({ desde, hasta, sucursales: sucs });
+    const ant = p.anterior;
+    const delta = (a: number | null | undefined, b: number | null | undefined, suf = '') => a == null || b == null ? null : { v: a - b, txt: `${a - b > 0 ? '+' : ''}${Math.round((a - b) * 10) / 10}${suf}` };
+    const dServ = delta(p.total, ant?.total);
+    const dTiempo = delta(p.enTiempoPct, ant?.enTiempoPct, ' pts');
+    const antPorTec = new Map((ant?.tecnicos || []).map(t => [t.tecnico, t]));
     const color = (pct: number | null) => pct === null ? 'var(--text-muted)' : pct >= 80 ? '#4ade80' : pct >= 60 ? '#facc15' : '#f87171';
     const alcance = ses.sucursalActivaId ? ses.sucursales.find(s => s.id === ses.sucursalActivaId)?.nombre : 'Todas las sucursales (consolidado)';
     return (
@@ -26,16 +31,16 @@ export default async function Informes({ searchParams }: { searchParams: Promise
                     <button className="btn-primary">Ver</button>
                     <Link className="btn-primary" style={{ background: 'var(--glass-bg)', color: 'white', border: '1px solid var(--glass-border)' }} href={`/api/reports/excel?inicio=${desde}&fin=${hasta}`}>Excel</Link></form></div>
             <div className="card-grid">
-                <div className="card"><div style={{ color: 'var(--text-muted)', fontSize: '.8rem' }}>Servicios terminados</div><div style={{ fontSize: '2rem', fontWeight: 800 }}>{p.total.toLocaleString('es-AR')}</div></div>
+                <div className="card"><div style={{ color: 'var(--text-muted)', fontSize: '.8rem' }}>Servicios terminados</div><div style={{ fontSize: '2rem', fontWeight: 800 }}>{p.total.toLocaleString('es-AR')}</div>{dServ && <div style={{ fontSize: '.75rem', color: dServ.v >= 0 ? '#4ade80' : '#f87171' }}>{dServ.txt} vs período anterior</div>}</div>
                 <div className="card"><div style={{ color: 'var(--text-muted)', fontSize: '.8rem' }}>Tiempo promedio / mediana</div><div style={{ fontSize: '1.6rem', fontWeight: 800 }}>{fmtDur(p.promMin)} <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>/ {fmtDur(p.medianaMin)}</span></div></div>
                 <div className="card"><div style={{ color: 'var(--text-muted)', fontSize: '.8rem' }}>Terminados en tiempo estándar</div><div style={{ fontSize: '2rem', fontWeight: 800, color: color(p.enTiempoPct) }}>{p.enTiempoPct ?? '-'}{p.enTiempoPct !== null && '%'}</div>
-                    <div style={{ fontSize: '.72rem', color: 'var(--text-muted)' }}>Estándar: auto {p.estandares.auto}′ · camioneta {p.estandares.camioneta}′ · camión {p.estandares.camion}′ (+10%)</div></div>
+                    {dTiempo && <div style={{ fontSize: '.75rem', color: dTiempo.v >= 0 ? '#4ade80' : '#f87171' }}>{dTiempo.txt} vs período anterior</div>}<div style={{ fontSize: '.72rem', color: 'var(--text-muted)' }}>Estándar: auto {p.estandares.auto}′ · camioneta {p.estandares.camioneta}′ · camión {p.estandares.camion}′ (+10%)</div></div>
                 {p.porSucursal.length > 1 && <div className="card"><div style={{ color: 'var(--text-muted)', fontSize: '.8rem' }}>Por sucursal</div>{p.porSucursal.map(s => <div key={s.nombre} style={{ display: 'flex', justifyContent: 'space-between' }}><span>{s.nombre}</span><b>{s.n}</b></div>)}</div>}
             </div>
             <div className="table-container"><table className="data-table">
-                <thead><tr><th>Técnico</th><th>Órdenes</th><th>Por día activo</th><th>Tiempo prom.</th><th>Mediana</th><th>vs estándar</th><th>En tiempo</th><th>Horas trabajadas</th><th>Mix (auto/camioneta/camión)</th></tr></thead>
+                <thead><tr><th>Técnico</th><th>Órdenes (vs anterior)</th><th>Por día activo</th><th>Tiempo prom.</th><th>Mediana</th><th>vs estándar</th><th>En tiempo</th><th>Horas trabajadas</th><th>Mix (auto/camioneta/camión)</th></tr></thead>
                 <tbody>{p.tecnicos.map(t => (
-                    <tr key={t.tecnico}><td><b>{t.tecnico}</b></td><td>{t.ordenes}</td><td>{t.ordenesPorDia}</td><td>{fmtDur(t.promMin)}</td><td>{fmtDur(t.medianaMin)}</td>
+                    <tr key={t.tecnico}><td><b>{t.tecnico}</b></td><td>{t.ordenes}{antPorTec.has(t.tecnico) && (() => { const d = t.ordenes - antPorTec.get(t.tecnico)!.ordenes; return <span style={{ fontSize: '.72rem', marginLeft: '.35rem', color: d >= 0 ? '#4ade80' : '#f87171' }}>{d > 0 ? '+' : ''}{d}</span>; })()}</td><td>{t.ordenesPorDia}</td><td>{fmtDur(t.promMin)}</td><td>{fmtDur(t.medianaMin)}</td>
                         <td style={{ color: t.desvioMin === null ? undefined : t.desvioMin <= 0 ? '#4ade80' : '#f87171' }}>{t.desvioMin === null ? '-' : `${t.desvioMin > 0 ? '+' : ''}${t.desvioMin} min`}</td>
                         <td style={{ color: color(t.enTiempoPct), fontWeight: 700 }}>{t.enTiempoPct === null ? '-' : `${t.enTiempoPct}%`}</td>
                         <td>{(t.minutosTotales / 60).toFixed(1)} h</td><td>{t.porTipo.auto || 0} / {t.porTipo.camioneta || 0} / {t.porTipo.camion || 0}</td></tr>))}
