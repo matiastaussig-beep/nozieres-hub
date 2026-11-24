@@ -99,7 +99,7 @@ export function textoCierreWhatsApp(fecha: string, hasta: string = fecha): strin
     l.push('', `Total: ${d.total.total} (${(d.total.anterior ? (d.total.total - d.total.anterior.total > 0 ? '+' : '') + (d.total.total - d.total.anterior.total) : '0')} ${vs})${d.mes !== null ? ` · Mes: ${d.mes}` : ''}`,
         `⏳ En proceso: ${d.base.enProceso} · 📅 Turnos ${hasta === fecha ? 'mañana' : 'próximos'}: ${d.base.turnosManana}`);
     if (d.base.mensajesError) alertas.push(`${d.base.mensajesError} mensajes a clientes con error`);
-    if (d.sinPresupuesto) alertas.push(`${d.sinPresupuesto} órdenes terminadas sin Nº de presupuesto de Boxer`);
+    if (d.sinPresupuesto) alertas.push(`${d.sinPresupuesto} ${d.sinPresupuesto === 1 ? 'orden terminada' : 'órdenes terminadas'} sin Nº de presupuesto de Boxer`);
     if (alertas.length) l.push('', '⚠️ Atención:', ...alertas.map(a => `• ${a}`));
     if (d.total.topServicios.length) l.push('', `🔝 Top: ${d.total.topServicios.slice(0, 3).map(([n]) => n).join(' · ')}`);
     const link = linkPanel(fecha, hasta);
@@ -127,7 +127,7 @@ export function textoCierreMail(fecha: string, hasta: string = fecha): string {
     if (t.topServicios.length) l.push('', `🔝 Servicios más pedidos: ${t.topServicios.slice(0, 5).map(([n, c]) => `${n} ${c}`).join(' · ')}`);
     if (d.mes !== null) l.push('', `📈 Acumulado del mes: ${d.mes} servicios`);
     if (d.base.mensajesError) l.push(`⚠️ ${d.base.mensajesError} mensajes con error en la bandeja`);
-    if (d.sinPresupuesto) l.push(`🧾 ${d.sinPresupuesto} órdenes terminadas sin Nº de presupuesto de Boxer`);
+    if (d.sinPresupuesto) l.push(`🧾 ${d.sinPresupuesto} ${d.sinPresupuesto === 1 ? 'orden terminada' : 'órdenes terminadas'} sin Nº de presupuesto de Boxer`);
     const link = linkPanel(fecha, hasta);
     if (link) l.push('', `Ver detalle: ${link}`);
     return l.join('\n');
