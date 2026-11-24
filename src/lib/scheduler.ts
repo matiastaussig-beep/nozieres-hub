@@ -51,7 +51,6 @@ export function encolarRecordatorios(hoy: string, hora: string) {
 }
 
 async function enviarPendientes() {
-    const modoAuto = waConfigurado();
     const filas = db.prepare(`SELECT * FROM mensajes WHERE estado IN ('pendiente') AND programado_para <= datetime('now') ORDER BY id LIMIT 25`).all() as any[];
     for (const m of filas) {
         if (m.canal === 'email') {
@@ -59,8 +58,8 @@ async function enviarPendientes() {
             const r = await enviarEmail(m.destino, m.asunto || 'Nozieres', m.cuerpo);
             registrar(m, r);
         } else {
-            if (!modoAuto) { db.prepare("UPDATE mensajes SET estado = 'manual' WHERE id = ?").run(m.id); continue; }   // sin WhatsApp automático: queda en la bandeja para enviar con un clic
-            const r = await enviarWhatsApp(m.destino, m.cuerpo);
+            if (!waConfigurado(m.sucursal_id ?? null)) { db.prepare("UPDATE mensajes SET estado = 'manual' WHERE id = ?").run(m.id); continue; }   // sin WhatsApp automático: queda en la bandeja para enviar con un clic
+            const r = await enviarWhatsApp(m.destino, m.cuerpo, m.sucursal_id ?? null);
             registrar(m, r);
         }
     }
