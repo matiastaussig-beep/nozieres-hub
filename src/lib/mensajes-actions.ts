@@ -39,12 +39,16 @@ export async function quitarDestinatarioAction(id: number): Promise<void> {
     revalidatePath('/configuracion/informes');
 }
 
-export async function enviarInformeAhoraAction(): Promise<void> {
+export async function enviarInformeAhoraAction(fd: FormData): Promise<void> {
     await requirePermiso('configuracion');
-    const fecha = fechaAR();
-    // Para probar: se genera con clave distinta para poder repetirlo
-    db.prepare("DELETE FROM mensajes WHERE tipo = 'informe_diario' AND clave_unica LIKE ? AND estado != 'enviado'").run(`informe:${fecha}:%`);
-    const n = generarInformesDelDia(fecha);
+    const re = /^\d{4}-\d{2}-\d{2}$/;
+    const hoy = fechaAR();
+    let fecha = re.test(String(fd.get('desde') || '')) ? String(fd.get('desde')) : hoy;
+    let hasta = re.test(String(fd.get('hasta') || '')) ? String(fd.get('hasta')) : fecha;
+    if (hasta < fecha) [fecha, hasta] = [hasta, fecha];
+    // Para probar: se regenera el mismo informe para poder repetirlo si no se envió
+    db.prepare("DELETE FROM mensajes WHERE tipo = 'informe_diario' AND clave_unica LIKE ? AND estado != 'enviado'").run(`informe:${fecha}${hasta === fecha ? '' : ':' + hasta}:%`);
+    const n = generarInformesDelDia(fecha, hasta);
     await tick();
     redirect(`/configuracion/informes?generados=${n}`);
 }

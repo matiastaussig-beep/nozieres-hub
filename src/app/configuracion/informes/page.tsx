@@ -7,12 +7,17 @@ import { fechaAR } from '@/lib/tiempo';
 
 export const dynamic = 'force-dynamic';
 
-export default async function InformesConfig({ searchParams }: { searchParams: Promise<{ ok?: string; error?: string; generados?: string }> }) {
+export default async function InformesConfig({ searchParams }: { searchParams: Promise<{ ok?: string; error?: string; generados?: string; desde?: string; hasta?: string }> }) {
     await requireSesion('configuracion');
     const sp = await searchParams;
     const sucursales = db.prepare('SELECT id, nombre FROM sucursales WHERE activa = 1').all() as { id: number; nombre: string }[];
     const dest = db.prepare('SELECT d.*, s.nombre sucursal FROM destinatarios_informe d LEFT JOIN sucursales s ON s.id = d.sucursal_id ORDER BY d.id').all() as any[];
-    const vista = textoInformeCompleto(fechaAR(), null);
+    const re = /^\d{4}-\d{2}-\d{2}$/;
+    const hoy = fechaAR();
+    let desde = re.test(sp.desde || '') ? sp.desde! : hoy;
+    let hasta = re.test(sp.hasta || '') ? sp.hasta! : desde;
+    if (hasta < desde) [desde, hasta] = [hasta, desde];
+    const vista = textoInformeCompleto(desde, null, hasta);
     const chk = (k: string) => cfg(k, '0') === '1';
     const T = (k: string) => cfg(k);
     return (
@@ -39,9 +44,13 @@ export default async function InformesConfig({ searchParams }: { searchParams: P
             </div>
 
             <div className="card" style={{ width: '100%' }}>
-                <h3>Así se ve el informe de hoy</h3>
+                <h3>Informe por fechas</h3>
+                <form style={{ display: 'flex', gap: '.4rem', flexWrap: 'wrap', alignItems: 'center', marginTop: '.4rem' }}>
+                    <input className="form-input" type="date" name="desde" defaultValue={desde} /><input className="form-input" type="date" name="hasta" defaultValue={hasta} />
+                    <button className="btn-primary">Ver</button>
+                </form>
                 <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', fontSize: '.88rem', marginTop: '.5rem' }}>{vista}</pre>
-                <form action={enviarInformeAhoraAction}><button className="btn-primary" style={{ marginTop: '.6rem' }}>Generar y enviar ahora (prueba)</button></form>
+                <form action={enviarInformeAhoraAction}><input type="hidden" name="desde" value={desde} /><input type="hidden" name="hasta" value={hasta} /><button className="btn-primary" style={{ marginTop: '.6rem' }}>Enviar este informe ahora a los destinatarios</button></form>
             </div>
 
             <form action={guardarAjustesMensajesAction} className="card" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
