@@ -24,16 +24,16 @@ export default async function InformesConfig({ searchParams }: { searchParams: P
 
             <div className="card" style={{ width: '100%' }}>
                 <h3>Destinatarios del informe de cierre</h3>
-                <p style={{ fontSize: '.8rem', color: 'var(--text-muted)', margin: '.3rem 0 .8rem' }}>Sin sucursal = informe consolidado de todas. Con sucursal = sólo esa sucursal.</p>
+                <p style={{ fontSize: '.8rem', color: 'var(--text-muted)', margin: '.3rem 0 .8rem' }}>Un único informe diario, consolidado con desglose por sucursal, para los gerentes. Sale desde Central.</p>
                 <table className="data-table"><thead><tr><th>Nombre</th><th>Canal</th><th>Destino</th><th>Informe de</th><th></th></tr></thead><tbody>
-                    {dest.map(d => <tr key={d.id}><td>{d.nombre}</td><td>{d.canal}</td><td>{d.destino}</td><td>{d.sucursal || 'Todas (consolidado)'}</td><td><form action={quitarDestinatarioAction.bind(null, d.id)}><button className="btn-primary" style={{ padding: '.25rem .7rem', fontSize: '.8rem', background: 'rgba(239,68,68,.12)', color: '#f87171', border: '1px solid rgba(239,68,68,.3)' }}>Quitar</button></form></td></tr>)}
+                    {dest.map(d => <tr key={d.id}><td>{d.nombre}</td><td>{d.canal}</td><td>{d.destino}</td><td>Consolidado</td><td><form action={quitarDestinatarioAction.bind(null, d.id)}><button className="btn-primary" style={{ padding: '.25rem .7rem', fontSize: '.8rem', background: 'rgba(239,68,68,.12)', color: '#f87171', border: '1px solid rgba(239,68,68,.3)' }}>Quitar</button></form></td></tr>)}
                     {!dest.length && <tr><td colSpan={5} style={{ color: 'var(--text-muted)' }}>Todavía no hay destinatarios.</td></tr>}
                 </tbody></table>
                 <form action={agregarDestinatarioAction} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: '.8rem', alignItems: 'end', marginTop: '1rem' }}>
                     <div className="form-group" style={{ marginBottom: 0 }}><label>Nombre</label><input className="form-input" name="nombre" required /></div>
                     <div className="form-group" style={{ marginBottom: 0 }}><label>Canal</label><select className="form-input" name="canal"><option value="whatsapp">WhatsApp</option><option value="email">Email</option></select></div>
                     <div className="form-group" style={{ marginBottom: 0 }}><label>Teléfono o email</label><input className="form-input" name="destino" required placeholder="3886705166 o nombre@mail.com" /></div>
-                    <div className="form-group" style={{ marginBottom: 0 }}><label>Informe de</label><select className="form-input" name="sucursal_id"><option value="">Todas (consolidado)</option>{sucursales.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}</select></div>
+                    
                     <button className="btn-primary" type="submit">Agregar</button>
                 </form>
             </div>

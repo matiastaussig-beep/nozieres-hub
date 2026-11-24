@@ -69,14 +69,12 @@ export function generarInformesDelDia(fecha = fechaAR()): number {
     if (cfg('informe_activo', '1') !== '1') return 0;
     const dest = db.prepare('SELECT * FROM destinatarios_informe WHERE activo = 1').all() as any[];
     let n = 0;
-    const cache = new Map<number | null, string>();
+    // Los informes son para gerencia: un único informe consolidado (con desglose por sucursal), que sale desde Central.
+    const cuerpo = textoInformeCompleto(fecha, null);
     for (const d of dest) {
-        const key = d.sucursal_id ?? null;
-        if (!cache.has(key)) cache.set(key, textoInformeCompleto(fecha, key));
-        const cuerpo = cache.get(key)!;
         const destino = d.canal === 'whatsapp' ? (d.destino as string).replace(/\D/g, '') : d.destino;
-        const r = db.prepare(`INSERT OR IGNORE INTO mensajes (tipo, canal, sucursal_id, destino, asunto, cuerpo, clave_unica, estado) VALUES ('informe_diario', ?, ?, ?, ?, ?, ?, 'pendiente')`)
-            .run(d.canal, d.sucursal_id, destino, `Nozieres · cierre del ${fechaCorta(fecha)}`, cuerpo, `informe:${fecha}:${d.id}`);
+        const r = db.prepare(`INSERT OR IGNORE INTO mensajes (tipo, canal, sucursal_id, destino, asunto, cuerpo, clave_unica, estado) VALUES ('informe_diario', ?, NULL, ?, ?, ?, ?, 'pendiente')`)
+            .run(d.canal, destino, `Nozieres · cierre del ${fechaCorta(fecha)}`, cuerpo, `informe:${fecha}:${d.id}`);
         n += r.changes;
     }
     return n;
