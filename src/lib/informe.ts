@@ -138,7 +138,9 @@ export function generarInformesDelDia(fecha = fechaAR(), hasta: string = fecha):
     const dest = db.prepare('SELECT * FROM destinatarios_informe WHERE activo = 1').all() as any[];
     let n = 0;
     // Los informes son para gerencia: un único informe consolidado (con desglose por sucursal), que sale desde Central.
-    const cuerpoWA = textoCierreWhatsApp(fecha, hasta), cuerpoMail = textoCierreMail(fecha, hasta);
+    // Por ahora todos reciben la versión completa (cfg informe_wa_completo = '0' vuelve a la corta con semáforo para WhatsApp).
+    const cuerpoMail = textoCierreMail(fecha, hasta);
+    const cuerpoWA = cfg('informe_wa_completo', '1') === '1' ? cuerpoMail : textoCierreWhatsApp(fecha, hasta);
     const sufijo = hasta === fecha ? '' : `:${hasta}`;
     for (const d of dest) {
         const cuerpo = d.canal === 'whatsapp' ? cuerpoWA : cuerpoMail;
