@@ -1,7 +1,7 @@
 import db from '@/lib/db';
 import { requireSesion } from '@/lib/auth';
 import { cfg } from '@/lib/mensajes';
-import { agregarDestinatarioAction, quitarDestinatarioAction, enviarInformeAhoraAction, guardarAjustesMensajesAction } from '@/lib/mensajes-actions';
+import { agregarDestinatarioAction, quitarDestinatarioAction, enviarInformeAhoraAction, guardarAjustesMensajesAction, pausarDestinatarioAction } from '@/lib/mensajes-actions';
 import { textoCierreWhatsApp, textoCierreMail } from '@/lib/informe';
 import { fechaAR } from '@/lib/tiempo';
 
@@ -31,9 +31,9 @@ export default async function InformesConfig({ searchParams }: { searchParams: P
             <div className="card" style={{ width: '100%' }}>
                 <h3>Destinatarios del informe de cierre</h3>
                 <p style={{ fontSize: '.8rem', color: 'var(--text-muted)', margin: '.3rem 0 .8rem' }}>Un único informe diario, consolidado con desglose por sucursal, para los gerentes. Sale desde Central.</p>
-                <table className="data-table"><thead><tr><th>Nombre</th><th>Canal</th><th>Destino</th><th>Informe de</th><th></th></tr></thead><tbody>
-                    {dest.map(d => <tr key={d.id}><td>{d.nombre}</td><td>{d.canal}</td><td>{d.destino}</td><td>Consolidado</td><td><form action={quitarDestinatarioAction.bind(null, d.id)}><button className="btn-primary" style={{ padding: '.25rem .7rem', fontSize: '.8rem', background: 'rgba(239,68,68,.12)', color: '#f87171', border: '1px solid rgba(239,68,68,.3)' }}>Quitar</button></form></td></tr>)}
-                    {!dest.length && <tr><td colSpan={5} style={{ color: 'var(--text-muted)' }}>Todavía no hay destinatarios.</td></tr>}
+                <table className="data-table"><thead><tr><th>Nombre</th><th>Canal</th><th>Destino</th><th>Informe de</th><th>Estado</th><th></th></tr></thead><tbody>
+                    {dest.map(d => <tr key={d.id}><td>{d.nombre}</td><td>{d.canal}</td><td>{d.destino}</td><td>Consolidado</td><td style={{ color: d.activo ? '#4ade80' : '#fbbf24' }}>{d.activo ? 'Recibe' : 'En pausa'}</td><td style={{ display: 'flex', gap: '.4rem' }}><form action={pausarDestinatarioAction.bind(null, d.id)}><button className="btn-primary" style={{ padding: '.25rem .7rem', fontSize: '.8rem', background: 'var(--glass-bg)', border: '1px solid var(--glass-border)' }}>{d.activo ? 'Pausar' : 'Activar'}</button></form><form action={quitarDestinatarioAction.bind(null, d.id)}><button className="btn-primary" style={{ padding: '.25rem .7rem', fontSize: '.8rem', background: 'rgba(239,68,68,.12)', color: '#f87171', border: '1px solid rgba(239,68,68,.3)' }}>Quitar</button></form></td></tr>)}
+                    {!dest.length && <tr><td colSpan={6} style={{ color: 'var(--text-muted)' }}>Todavía no hay destinatarios.</td></tr>}
                 </tbody></table>
                 <form action={agregarDestinatarioAction} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: '.8rem', alignItems: 'end', marginTop: '1rem' }}>
                     <div className="form-group" style={{ marginBottom: 0 }}><label>Nombre</label><input className="form-input" name="nombre" required /></div>

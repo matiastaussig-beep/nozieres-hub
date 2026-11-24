@@ -43,6 +43,12 @@ export default async function NuevoCliente() {
                         <input type="email" id="email" name="email" className="form-input" placeholder="Ej: juan@example.com" />
                     </div>
 
+                    <div className="form-group">
+                        <label style={{ color: 'var(--text-main)', fontWeight: 500 }}>Avisos al cliente (recibimos tu auto, está listo, service por vencer)</label>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '.5rem', marginTop: '.4rem' }}><input type="checkbox" name="avisos_whatsapp" defaultChecked /> Enviar por WhatsApp</label>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '.5rem', marginTop: '.4rem' }}><input type="checkbox" name="avisos_email" defaultChecked /> Enviar por mail</label>
+                    </div>
+
                     <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
                         <button type="submit" className="btn-primary">
                             <Save size={18} /> Guardar Cliente

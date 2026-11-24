@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { requireSesion, sucursalesVisibles } from '@/lib/auth';
-import { productividad } from '@/lib/productividad';
+import { productividad, sinPresupuesto } from '@/lib/productividad';
 import { fmtDur } from '@/lib/queries';
 import { fechaAR } from '@/lib/tiempo';
 
@@ -15,6 +15,7 @@ export default async function Informes({ searchParams }: { searchParams: Promise
     const hasta = re.test(sp.hasta || '') ? sp.hasta! : hoy;
     const sucs = sucursalesVisibles(ses);
     const p = productividad({ desde, hasta, sucursales: sucs });
+    const sinP = sinPresupuesto({ desde, hasta, sucursales: sucs });
     const ant = p.anterior;
     const delta = (a: number | null | undefined, b: number | null | undefined, suf = '') => a == null || b == null ? null : { v: a - b, txt: `${a - b > 0 ? '+' : ''}${Math.round((a - b) * 10) / 10}${suf}` };
     const dServ = delta(p.total, ant?.total);
@@ -47,6 +48,11 @@ export default async function Informes({ searchParams }: { searchParams: Promise
                     {!p.tecnicos.length && <tr><td colSpan={9} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>No hay servicios terminados en este período.</td></tr>}</tbody>
             </table></div>
             <p style={{ fontSize: '.78rem', color: 'var(--text-muted)' }}>Una orden hecha por dos técnicos cuenta para cada uno. Desde ahora el tiempo se mide con el reloj real de “abrir” y “terminar” la orden (antes se anotaba a mano la hora).</p>
+            <div className="card" style={{ width: '100%' }}><h3 style={{ marginBottom: '.5rem' }}>Órdenes sin Nº de presupuesto</h3>
+                {sinP.total === 0 ? <p style={{ fontSize: '.88rem', color: 'var(--text-muted)' }}>Todavía no hay órdenes terminadas en el sistema para este período.</p> : <>
+                    <p style={{ fontSize: '.95rem' }}><b style={{ color: sinP.sin ? '#fbbf24' : '#4ade80' }}>{sinP.sin}</b> de {sinP.total} órdenes terminadas salieron sin presupuesto{sinP.pct !== null ? ` (${sinP.pct}%)` : ''}.</p>
+                    {sinP.porTecnico.map(([n, c]) => <div key={n} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '.9rem', padding: '.2rem 0' }}><span>{n}</span><b>{c}</b></div>)}</>}
+                <p style={{ fontSize: '.75rem', color: 'var(--text-muted)', marginTop: '.5rem' }}>Cuenta sólo órdenes abiertas y cerradas con el reloj del sistema; el historial importado no tenía este dato.</p></div>
             <div className="card" style={{ width: '100%' }}><h3 style={{ marginBottom: '.5rem' }}>Servicios más pedidos</h3>
                 {p.topServicios.map(([n, c]) => <div key={n} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '.9rem', padding: '.2rem 0' }}><span>{n}</span><b>{c}</b></div>)}</div>
         </main>

@@ -52,7 +52,7 @@ interface Contexto { hora?: string | null; cliente_id: number; orden_id?: number
 /** Arma y encola un mensaje para el cliente. `claveUnica` evita enviarlo dos veces. Devuelve true si se encoló. */
 export function encolarMensajeCliente(tipo: Exclude<TipoMensaje, 'informe_diario'>, ctx: Contexto, claveUnica: string, programadoPara?: string): boolean {
     if (cfg('mensajes_activos', '1') !== '1') return false;
-    const cli = db.prepare('SELECT id, nombre, telefono FROM clientes WHERE id = ?').get(ctx.cliente_id) as { id: number; nombre: string; telefono: string | null } | undefined;
+    const cli = db.prepare('SELECT id, nombre, telefono, email, avisos_whatsapp, avisos_email FROM clientes WHERE id = ?').get(ctx.cliente_id) as { id: number; nombre: string; telefono: string | null; email: string | null; avisos_whatsapp: number | null; avisos_email: number | null } | undefined;
     if (!cli) return false;
     const destino = normalizarTelefono(cli.telefono);
     const veh = ctx.vehiculo_id
@@ -70,10 +70,24 @@ export function encolarMensajeCliente(tipo: Exclude<TipoMensaje, 'informe_diario
         hora: ctx.hora || '',
         portal,
     }).replace(/\s+Seguí el historial en\s*$/, '').trim();
-    const r = db.prepare(`INSERT OR IGNORE INTO mensajes (tipo, canal, cliente_id, orden_id, turno_id, sucursal_id, destino, cuerpo, clave_unica, programado_para, estado)
-                          VALUES (?, 'whatsapp', ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')), ?)`)
-        .run(tipo, cli.id, ctx.orden_id ?? null, ctx.turno_id ?? null, ctx.sucursal_id ?? null, destino, cuerpo, claveUnica, programadoPara ?? null,
-            destino ? 'pendiente' : 'descartado');
-    if (!destino && r.changes) db.prepare("UPDATE mensajes SET error = 'El cliente no tiene un teléfono válido' WHERE clave_unica = ?").run(claveUnica);
-    return r.changes > 0;
+    let encolado = false;
+    // WhatsApp: sólo si el cliente lo aceptó (casilla en su perfil)
+    if (cli.avisos_whatsapp !== 0) {
+        const r = db.prepare(`INSERT OR IGNORE INTO mensajes (tipo, canal, cliente_id, orden_id, turno_id, sucursal_id, destino, cuerpo, clave_unica, programado_para, estado)
+                              VALUES (?, 'whatsapp', ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')), ?)`)
+            .run(tipo, cli.id, ctx.orden_id ?? null, ctx.turno_id ?? null, ctx.sucursal_id ?? null, destino, cuerpo, claveUnica, programadoPara ?? null,
+                destino ? 'pendiente' : 'descartado');
+        if (!destino && r.changes) db.prepare("UPDATE mensajes SET error = 'El cliente no tiene un teléfono válido' WHERE clave_unica = ?").run(claveUnica);
+        if (r.changes > 0) encolado = true;
+    }
+    // Mail: sólo si lo aceptó y tiene un email válido
+    const mail = (cli.email || '').trim();
+    if (cli.avisos_email !== 0 && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(mail)) {
+        const asuntos: Record<string, string> = { recibimos_auto: 'Recibimos tu vehículo', auto_listo: 'Tu vehículo está listo', service_proximo: 'Tu service está por vencer', turno_recordatorio: 'Recordatorio de tu turno' };
+        const r = db.prepare(`INSERT OR IGNORE INTO mensajes (tipo, canal, cliente_id, orden_id, turno_id, sucursal_id, destino, asunto, cuerpo, clave_unica, programado_para, estado)
+                              VALUES (?, 'email', ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')), 'pendiente')`)
+            .run(tipo, cli.id, ctx.orden_id ?? null, ctx.turno_id ?? null, ctx.sucursal_id ?? null, mail, `${asuntos[tipo] || 'Aviso'} · Nozieres`, cuerpo, `${claveUnica}:mail`, programadoPara ?? null);
+        if (r.changes > 0) encolado = true;
+    }
+    return encolado;
 }

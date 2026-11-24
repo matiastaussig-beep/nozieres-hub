@@ -27,6 +27,8 @@ export interface Cliente {
     email: string | null;
     fecha_registro: string;
     puntos_acumulados?: number;
+    avisos_whatsapp?: number | null;
+    avisos_email?: number | null;
 }
 
 export interface Vehiculo {
@@ -151,10 +153,20 @@ export async function createCliente(formData: FormData) {
     const telefono = formData.get('telefono') as string;
     const email = formData.get('email') as string;
 
-    const stmt = db.prepare('INSERT INTO clientes (nombre, dni, telefono, email) VALUES (?, ?, ?, ?)');
-    stmt.run(nombre, dni || null, telefono, email || null);
+    const avWa = formData.get('avisos_whatsapp') === 'on' ? 1 : 0;
+    const avMail = formData.get('avisos_email') === 'on' ? 1 : 0;
+    const stmt = db.prepare('INSERT INTO clientes (nombre, dni, telefono, email, avisos_whatsapp, avisos_email) VALUES (?, ?, ?, ?, ?, ?)');
+    stmt.run(nombre, dni || null, telefono, email || null, avWa, avMail);
 
     revalidatePath('/clientes');
+}
+
+/** Casillas de avisos (WhatsApp / mail) del perfil del cliente. */
+export async function actualizarAvisosClienteAction(clienteId: number, formData: FormData): Promise<void> {
+    await requirePermiso('clientes.editar');
+    db.prepare('UPDATE clientes SET avisos_whatsapp = ?, avisos_email = ? WHERE id = ?')
+        .run(formData.get('avisos_whatsapp') === 'on' ? 1 : 0, formData.get('avisos_email') === 'on' ? 1 : 0, clienteId);
+    revalidatePath(`/clientes/${clienteId}`);
 }
 
 export async function getVehiculos(query: string = ''): Promise<Vehiculo[]> {

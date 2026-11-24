@@ -33,6 +33,12 @@ export async function agregarDestinatarioAction(formData: FormData): Promise<voi
     redirect('/configuracion/informes?ok=1');
 }
 
+export async function pausarDestinatarioAction(id: number): Promise<void> {
+    await requirePermiso('configuracion');
+    db.prepare('UPDATE destinatarios_informe SET activo = CASE WHEN activo = 1 THEN 0 ELSE 1 END WHERE id = ?').run(id);
+    revalidatePath('/configuracion/informes');
+}
+
 export async function quitarDestinatarioAction(id: number): Promise<void> {
     await requirePermiso('configuracion');
     db.prepare('DELETE FROM destinatarios_informe WHERE id = ?').run(id);

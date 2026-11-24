@@ -1,5 +1,5 @@
 import { requireSesion } from '@/lib/auth';
-import { getClienteById, getVehiculosDeCliente, getHistorialCliente } from '@/lib/actions';
+import { getClienteById, getVehiculosDeCliente, getHistorialCliente, actualizarAvisosClienteAction } from '@/lib/actions';
 import { notFound } from 'next/navigation';
 import { ArrowLeft, User, Phone, Mail, CreditCard, Car, Wrench, Clock, FileText, MessageCircle, AlertTriangle, CheckCircle, Calendar, Award, MapPin } from 'lucide-react';
 import Link from 'next/link';
@@ -157,6 +157,13 @@ export default async function ClientePerfilPage({ params }: { params: Promise<{ 
                     })}
                 </div>
             )}
+
+            <form action={actualizarAvisosClienteAction.bind(null, cliente.id)} className="hero-glass" style={{ padding: '1rem 1.2rem', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '1.2rem', width: '100%', marginBottom: '1rem' }}>
+                <b style={{ fontSize: '.9rem' }}>Avisos al cliente</b>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '.4rem' }}><input type="checkbox" name="avisos_whatsapp" defaultChecked={cliente.avisos_whatsapp !== 0} /> WhatsApp</label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '.4rem' }}><input type="checkbox" name="avisos_email" defaultChecked={cliente.avisos_email !== 0} /> Mail</label>
+                <button className="btn-primary" style={{ padding: '.3rem .9rem', fontSize: '.85rem' }}>Guardar</button>
+            </form>
 
             {/* Info Cards */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', width: '100%', marginBottom: '2rem' }}>

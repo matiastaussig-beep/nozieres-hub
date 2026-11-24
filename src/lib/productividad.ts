@@ -13,6 +13,17 @@ function estandares() {
 
 function diaMenos(f: string, n: number) { const d = new Date(f + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() - n); return d.toISOString().slice(0, 10); }
 
+/** Órdenes terminadas en el Hub (con reloj real) sin Nº de presupuesto de Boxer. El historial importado no cuenta: no tenía ese dato. */
+export function sinPresupuesto(o: { desde: string; hasta: string; sucursales: number[] }) {
+    const rows = db.prepare(`SELECT ot.id, ot.sucursal_id, ot.tecnico_asignado t, ot.presupuesto_nro p, date(ot.fecha) dia FROM ordenes_trabajo ot
+        WHERE ot.estado = 'terminada' AND ot.iniciada_at LIKE '%-%' AND date(ot.fecha) BETWEEN ? AND ? AND ot.sucursal_id IN (${o.sucursales.map(() => '?').join(',') || 'NULL'})`)
+        .all(o.desde, o.hasta, ...o.sucursales) as any[];
+    const sin = rows.filter(r => !String(r.p || '').trim());
+    const porTec = new Map<string, number>();
+    for (const r of sin) { const k = ((r.t || 'Sin asignar') as string).trim().toUpperCase(); porTec.set(k, (porTec.get(k) || 0) + 1); }
+    return { total: rows.length, sin: sin.length, pct: rows.length ? Math.round((sin.length / rows.length) * 100) : null, porTecnico: [...porTec.entries()].sort((a, b) => b[1] - a[1]) };
+}
+
 /** Productividad por técnico en un período, con comparación contra el período anterior de igual largo. */
 export function productividad(o: { desde: string; hasta: string; sucursales: number[] }, conAnterior = true): ReturnType<typeof calcular> & { anterior: ReturnType<typeof calcular> | null } {
     const actual = calcular(o);

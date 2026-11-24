@@ -80,7 +80,7 @@ function datosCierre(fecha: string, hasta: string) {
     const porSuc = sucs.map(s => ({ s, p: productividad({ desde: fecha, hasta, sucursales: [s.id] }), puntos: resumenDia(fecha, s.id, hasta).puntos }));
     const mes = fecha === hasta ? productividad({ desde: hasta.slice(0, 8) + '01', hasta, sucursales: ids }, false).total : null;
     const r = rangoUTC(fecha, hasta);
-    const sinPresupuesto = (db.prepare(`SELECT COUNT(*) c FROM ordenes_trabajo WHERE estado = 'terminada' AND cerrada_at >= ? AND cerrada_at < ? AND (presupuesto_nro IS NULL OR TRIM(presupuesto_nro) = '')`).get(r.desdeISO, r.hastaISO) as { c: number }).c;
+    const sinPresupuesto = (db.prepare(`SELECT COUNT(*) c FROM ordenes_trabajo WHERE estado = 'terminada' AND iniciada_at LIKE '%-%' AND cerrada_at >= ? AND cerrada_at < ? AND (presupuesto_nro IS NULL OR TRIM(presupuesto_nro) = '')`).get(r.desdeISO, r.hastaISO) as { c: number }).c;
     return { total, porSuc, mes, base: resumenDia(fecha, null, hasta), sinPresupuesto };
 }
 const tituloCierre = (fecha: string, hasta: string) => hasta === fecha ? `Cierre del ${fechaCorta(fecha)}` : `Informe del ${fechaCorta(fecha)} al ${fechaCorta(hasta)}`;

@@ -203,6 +203,12 @@ const migrations: Array<(db: Database.Database) => void> = [
         }
         if (cols.includes('monto_por_punto')) db.exec('ALTER TABLE configuracion_puntos DROP COLUMN monto_por_punto');
     },
+    // v4: casillas de avisos por cliente (WhatsApp / mail). Por defecto aceptan ambos.
+    (db) => {
+        const cols = (db.prepare('PRAGMA table_info(clientes)').all() as { name: string }[]).map(c => c.name);
+        if (!cols.includes('avisos_whatsapp')) db.exec('ALTER TABLE clientes ADD COLUMN avisos_whatsapp INTEGER DEFAULT 1');
+        if (!cols.includes('avisos_email')) db.exec('ALTER TABLE clientes ADD COLUMN avisos_email INTEGER DEFAULT 1');
+    },
 ];
 
 export function runMigrations(db: Database.Database) {
