@@ -1,6 +1,7 @@
 import db from './db';
 import { fechaAR, fechaCorta, sumarDias } from './tiempo';
-import { cfg } from './mensajes';
+import { cfg, baseUrl } from './mensajes';
+import { productividad } from './productividad';
 
 /** Rango UTC (texto 'YYYY-MM-DD HH:MM:SS') que cubre el día calendario argentino (UTC-3). */
 export function rangoUTC(fecha: string, hastaFecha: string = fecha) {
@@ -67,14 +68,76 @@ export function textoInformeCompleto(fecha: string, sucursalId: number | null, h
     return `${base}\n\nDesglose por sucursal:\n${bloques.join('\n')}`;
 }
 
+
+// ---------- Informe de cierre para gerencia (datos iguales a la pantalla Productividad) ----------
+const delta = (a: number, b?: number) => b === undefined ? '' : ` (${a - b > 0 ? '+' : ''}${a - b})`;
+const semaforo = (pct: number | null, total: number) => total === 0 || pct === null ? '⚪' : pct >= 80 ? '🟢' : pct >= 60 ? '🟡' : '🔴';
+
+function datosCierre(fecha: string, hasta: string) {
+    const sucs = db.prepare('SELECT id, nombre FROM sucursales WHERE activa IS NULL OR activa = 1 ORDER BY id').all() as { id: number; nombre: string }[];
+    const ids = sucs.map(s => s.id);
+    const total = productividad({ desde: fecha, hasta, sucursales: ids });
+    const porSuc = sucs.map(s => ({ s, p: productividad({ desde: fecha, hasta, sucursales: [s.id] }), puntos: resumenDia(fecha, s.id, hasta).puntos }));
+    const mes = fecha === hasta ? productividad({ desde: hasta.slice(0, 8) + '01', hasta, sucursales: ids }, false).total : null;
+    return { total, porSuc, mes, base: resumenDia(fecha, null, hasta) };
+}
+const tituloCierre = (fecha: string, hasta: string) => hasta === fecha ? `Cierre del ${fechaCorta(fecha)}` : `Informe del ${fechaCorta(fecha)} al ${fechaCorta(hasta)}`;
+const linkPanel = (fecha: string, hasta: string) => { try { const b = baseUrl(); return b ? `${b}/informes?desde=${fecha}&hasta=${hasta}` : ''; } catch { return ''; } };
+
+/** Versión corta con semáforo por sucursal (para WhatsApp). */
+export function textoCierreWhatsApp(fecha: string, hasta: string = fecha): string {
+    const d = datosCierre(fecha, hasta);
+    const vs = hasta === fecha ? 'vs ayer' : 'vs período anterior';
+    const l = [`📊 Nozieres · ${tituloCierre(fecha, hasta)}`, ''];
+    const alertas: string[] = [];
+    for (const { s, p } of d.porSuc) {
+        l.push(`${semaforo(p.enTiempoPct, p.total)} ${s.nombre}: ${p.total} servicios${delta(p.total, p.anterior?.total)}${p.enTiempoPct !== null ? ` · ${p.enTiempoPct}% en tiempo` : ''}`);
+        if (p.enTiempoPct !== null && p.enTiempoPct < 80) alertas.push(`${s.nombre}: ${p.conTiempo - Math.round(p.conTiempo * p.enTiempoPct / 100)} órdenes pasaron el tiempo estándar`);
+    }
+    l.push('', `Total: ${d.total.total} (${(d.total.anterior ? (d.total.total - d.total.anterior.total > 0 ? '+' : '') + (d.total.total - d.total.anterior.total) : '0')} ${vs})${d.mes !== null ? ` · Mes: ${d.mes}` : ''}`,
+        `⏳ En proceso: ${d.base.enProceso} · 📅 Turnos ${hasta === fecha ? 'mañana' : 'próximos'}: ${d.base.turnosManana}`);
+    if (d.base.mensajesError) alertas.push(`${d.base.mensajesError} mensajes a clientes con error`);
+    if (alertas.length) l.push('', '⚠️ Atención:', ...alertas.map(a => `• ${a}`));
+    if (d.total.topServicios.length) l.push('', `🔝 Top: ${d.total.topServicios.slice(0, 3).map(([n]) => n).join(' · ')}`);
+    const link = linkPanel(fecha, hasta);
+    if (link) l.push('', `Detalle por técnico: ${link}`);
+    return l.join('\n');
+}
+
+/** Versión completa con consolidado, sucursales, técnicos y servicios más pedidos (para mail). */
+export function textoCierreMail(fecha: string, hasta: string = fecha): string {
+    const d = datosCierre(fecha, hasta);
+    const vs = hasta === fecha ? 'vs ayer' : 'vs período anterior';
+    const t = d.total;
+    const min = (m: number | null) => m !== null ? `${m} min` : 's/d';
+    const l = [`📊 Nozieres · ${tituloCierre(fecha, hasta)}`, '',
+        `✅ Terminados: ${t.total}${delta(t.total, t.anterior?.total)} ${vs}`,
+        `⏳ Siguen en proceso: ${d.base.enProceso}`,
+        `⏱️ Tiempo promedio: ${min(t.promMin)}${t.medianaMin !== null ? ` (mediana ${t.medianaMin})` : ''} · ${t.enTiempoPct !== null ? t.enTiempoPct + '% en tiempo estándar' : 'en tiempo estándar: s/d'}`,
+        `⭐ Puntos: ${d.base.puntos} · 📅 Turnos ${hasta === fecha ? 'mañana' : 'próximos'}: ${d.base.turnosManana}`];
+    for (const { s, p, puntos } of d.porSuc) {
+        l.push('', '━━━━━━━━━━', `📍 ${s.nombre}`,
+            `✅ ${p.total}${delta(p.total, p.anterior?.total)} · ⏱️ ${min(p.promMin)} · ${p.enTiempoPct !== null ? p.enTiempoPct + '% en tiempo' : 'en tiempo s/d'} · ⭐ ${puntos}`);
+        const tec = p.tecnicos.map(x => `${x.tecnico.startsWith('Otros') ? 'Otros' : x.tecnico}: ${x.ordenes}${x.promMin !== null ? ` (${x.promMin} min)` : ''}`);
+        if (tec.length) l.push(`• ${tec.join(' · ')}`);
+    }
+    if (t.topServicios.length) l.push('', `🔝 Servicios más pedidos: ${t.topServicios.slice(0, 5).map(([n, c]) => `${n} ${c}`).join(' · ')}`);
+    if (d.mes !== null) l.push('', `📈 Acumulado del mes: ${d.mes} servicios`);
+    if (d.base.mensajesError) l.push(`⚠️ ${d.base.mensajesError} mensajes con error en la bandeja`);
+    const link = linkPanel(fecha, hasta);
+    if (link) l.push('', `Ver detalle: ${link}`);
+    return l.join('\n');
+}
+
 export function generarInformesDelDia(fecha = fechaAR(), hasta: string = fecha): number {
     if (cfg('informe_activo', '1') !== '1') return 0;
     const dest = db.prepare('SELECT * FROM destinatarios_informe WHERE activo = 1').all() as any[];
     let n = 0;
     // Los informes son para gerencia: un único informe consolidado (con desglose por sucursal), que sale desde Central.
-    const cuerpo = textoInformeCompleto(fecha, null, hasta);
+    const cuerpoWA = textoCierreWhatsApp(fecha, hasta), cuerpoMail = textoCierreMail(fecha, hasta);
     const sufijo = hasta === fecha ? '' : `:${hasta}`;
     for (const d of dest) {
+        const cuerpo = d.canal === 'whatsapp' ? cuerpoWA : cuerpoMail;
         const destino = d.canal === 'whatsapp' ? (d.destino as string).replace(/\D/g, '') : d.destino;
         const r = db.prepare(`INSERT OR IGNORE INTO mensajes (tipo, canal, sucursal_id, destino, asunto, cuerpo, clave_unica, estado) VALUES ('informe_diario', ?, NULL, ?, ?, ?, ?, 'pendiente')`)
             .run(d.canal, destino, hasta === fecha ? `Nozieres · cierre del ${fechaCorta(fecha)}` : `Nozieres · informe del ${fechaCorta(fecha)} al ${fechaCorta(hasta)}`, cuerpo, `informe:${fecha}${sufijo}:${d.id}`);

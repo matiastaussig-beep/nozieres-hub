@@ -2,7 +2,7 @@ import db from '@/lib/db';
 import { requireSesion } from '@/lib/auth';
 import { cfg } from '@/lib/mensajes';
 import { agregarDestinatarioAction, quitarDestinatarioAction, enviarInformeAhoraAction, guardarAjustesMensajesAction } from '@/lib/mensajes-actions';
-import { textoInformeCompleto } from '@/lib/informe';
+import { textoCierreWhatsApp, textoCierreMail } from '@/lib/informe';
 import { fechaAR } from '@/lib/tiempo';
 
 export const dynamic = 'force-dynamic';
@@ -17,7 +17,8 @@ export default async function InformesConfig({ searchParams }: { searchParams: P
     let desde = re.test(sp.desde || '') ? sp.desde! : hoy;
     let hasta = re.test(sp.hasta || '') ? sp.hasta! : desde;
     if (hasta < desde) [desde, hasta] = [hasta, desde];
-    const vista = textoInformeCompleto(desde, null, hasta);
+    const vistaWA = textoCierreWhatsApp(desde, hasta);
+    const vistaMail = textoCierreMail(desde, hasta);
     const chk = (k: string) => cfg(k, '0') === '1';
     const T = (k: string) => cfg(k);
     return (
@@ -49,7 +50,10 @@ export default async function InformesConfig({ searchParams }: { searchParams: P
                     <input className="form-input" type="date" name="desde" defaultValue={desde} /><input className="form-input" type="date" name="hasta" defaultValue={hasta} />
                     <button className="btn-primary">Ver</button>
                 </form>
-                <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', fontSize: '.88rem', marginTop: '.5rem' }}>{vista}</pre>
+                <p style={{ fontSize: '.8rem', color: 'var(--text-muted)', marginTop: '.6rem' }}>Versión WhatsApp (corta, con semáforo)</p>
+                <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', fontSize: '.88rem', marginTop: '.2rem' }}>{vistaWA}</pre>
+                <p style={{ fontSize: '.8rem', color: 'var(--text-muted)', marginTop: '.8rem' }}>Versión mail (completa)</p>
+                <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', fontSize: '.88rem', marginTop: '.2rem' }}>{vistaMail}</pre>
                 <form action={enviarInformeAhoraAction}><input type="hidden" name="desde" value={desde} /><input type="hidden" name="hasta" value={hasta} /><button className="btn-primary" style={{ marginTop: '.6rem' }}>Enviar este informe ahora a los destinatarios</button></form>
             </div>
 
