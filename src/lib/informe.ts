@@ -48,6 +48,23 @@ export function textoInforme(r: ResumenDia): string {
     return l.join('\n');
 }
 
+/** Informe consolidado + desglose por sucursal (lo que recibe quien no está atado a una sola sucursal). */
+export function textoInformeCompleto(fecha: string, sucursalId: number | null): string {
+    const base = textoInforme(resumenDia(fecha, sucursalId));
+    if (sucursalId) return base;
+    const sucs = db.prepare('SELECT id, nombre FROM sucursales WHERE activa IS NULL OR activa = 1 ORDER BY id').all() as { id: number; nombre: string }[];
+    if (sucs.length < 2) return base;
+    const bloques = sucs.map(sc => {
+        const r = resumenDia(fecha, sc.id);
+        const l = [`━━━━━━━━━━`, `📍 ${sc.nombre}`,
+            `🔧 Abiertas: ${r.abiertas} · ✅ Terminadas: ${r.terminadas} · ⏳ En proceso: ${r.enProceso}`,
+            `⏱️ Tiempo prom.: ${r.promMin !== null ? r.promMin + ' min' : 's/d'} · ⭐ Puntos: ${r.puntos} · 📅 Turnos mañana: ${r.turnosManana}`];
+        if (r.tecnicos.length) for (const t of r.tecnicos) l.push(`• ${t.nombre}: ${t.n}${t.promMin !== null ? ` (prom. ${t.promMin} min)` : ''}`);
+        return l.join('\n');
+    });
+    return `${base}\n\nDesglose por sucursal:\n${bloques.join('\n')}`;
+}
+
 export function generarInformesDelDia(fecha = fechaAR()): number {
     if (cfg('informe_activo', '1') !== '1') return 0;
     const dest = db.prepare('SELECT * FROM destinatarios_informe WHERE activo = 1').all() as any[];
@@ -55,7 +72,7 @@ export function generarInformesDelDia(fecha = fechaAR()): number {
     const cache = new Map<number | null, string>();
     for (const d of dest) {
         const key = d.sucursal_id ?? null;
-        if (!cache.has(key)) cache.set(key, textoInforme(resumenDia(fecha, key)));
+        if (!cache.has(key)) cache.set(key, textoInformeCompleto(fecha, key));
         const cuerpo = cache.get(key)!;
         const destino = d.canal === 'whatsapp' ? (d.destino as string).replace(/\D/g, '') : d.destino;
         const r = db.prepare(`INSERT OR IGNORE INTO mensajes (tipo, canal, sucursal_id, destino, asunto, cuerpo, clave_unica, estado) VALUES ('informe_diario', ?, ?, ?, ?, ?, ?, 'pendiente')`)

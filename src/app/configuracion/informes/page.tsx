@@ -2,7 +2,7 @@ import db from '@/lib/db';
 import { requireSesion } from '@/lib/auth';
 import { cfg } from '@/lib/mensajes';
 import { agregarDestinatarioAction, quitarDestinatarioAction, enviarInformeAhoraAction, guardarAjustesMensajesAction } from '@/lib/mensajes-actions';
-import { resumenDia, textoInforme } from '@/lib/informe';
+import { textoInformeCompleto } from '@/lib/informe';
 import { fechaAR } from '@/lib/tiempo';
 
 export const dynamic = 'force-dynamic';
@@ -12,7 +12,7 @@ export default async function InformesConfig({ searchParams }: { searchParams: P
     const sp = await searchParams;
     const sucursales = db.prepare('SELECT id, nombre FROM sucursales WHERE activa = 1').all() as { id: number; nombre: string }[];
     const dest = db.prepare('SELECT d.*, s.nombre sucursal FROM destinatarios_informe d LEFT JOIN sucursales s ON s.id = d.sucursal_id ORDER BY d.id').all() as any[];
-    const vista = textoInforme(resumenDia(fechaAR(), null));
+    const vista = textoInformeCompleto(fechaAR(), null);
     const chk = (k: string) => cfg(k, '0') === '1';
     const T = (k: string) => cfg(k);
     return (
