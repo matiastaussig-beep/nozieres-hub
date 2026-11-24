@@ -3,17 +3,17 @@ import { fechaAR, fechaCorta, sumarDias } from './tiempo';
 import { cfg } from './mensajes';
 
 /** Rango UTC (texto 'YYYY-MM-DD HH:MM:SS') que cubre el día calendario argentino (UTC-3). */
-export function rangoUTC(fecha: string) {
-    return { desde: `${fecha} 03:00:00`, hasta: `${sumarDias(fecha, 1)} 03:00:00`, desdeISO: `${fecha}T03:00:00.000Z`, hastaISO: `${sumarDias(fecha, 1)}T03:00:00.000Z` };
+export function rangoUTC(fecha: string, hastaFecha: string = fecha) {
+    return { desde: `${fecha} 03:00:00`, hasta: `${sumarDias(hastaFecha, 1)} 03:00:00`, desdeISO: `${fecha}T03:00:00.000Z`, hastaISO: `${sumarDias(hastaFecha, 1)}T03:00:00.000Z` };
 }
 
 export interface ResumenDia {
-    fecha: string; sucursal: string; abiertas: number; terminadas: number; enProceso: number; turnosManana: number; puntos: number;
+    fecha: string; hasta: string; sucursal: string; abiertas: number; terminadas: number; enProceso: number; turnosManana: number; puntos: number;
     tecnicos: { nombre: string; n: number; promMin: number | null }[]; promMin: number | null; mensajesError: number;
 }
 
-export function resumenDia(fecha: string, sucursalId: number | null): ResumenDia {
-    const r = rangoUTC(fecha);
+export function resumenDia(fecha: string, sucursalId: number | null, hasta: string = fecha): ResumenDia {
+    const r = rangoUTC(fecha, hasta);
     const filtro = sucursalId ? 'AND sucursal_id = ?' : '';
     const sp = sucursalId ? [sucursalId] : [];
     const n = (sql: string, ...p: any[]) => (db.prepare(sql).get(...p) as { c: number }).c;
@@ -29,9 +29,9 @@ export function resumenDia(fecha: string, sucursalId: number | null): ResumenDia
     const avg = (a: number[]) => { const v = a.filter(x => !isNaN(x)); return v.length ? Math.round(v.reduce((s, x) => s + x, 0) / v.length) : null; };
     const suc = sucursalId ? (db.prepare('SELECT nombre FROM sucursales WHERE id = ?').get(sucursalId) as any)?.nombre : 'Todas las sucursales';
     return {
-        fecha, sucursal: suc || 'Sucursal', abiertas, terminadas: term.length,
+        fecha, hasta, sucursal: suc || 'Sucursal', abiertas, terminadas: term.length,
         enProceso: n(`SELECT COUNT(*) c FROM ordenes_trabajo WHERE estado = 'en_proceso' ${filtro}`, ...sp),
-        turnosManana: n(`SELECT COUNT(*) c FROM turnos WHERE fecha = ? AND estado = 'en_espera' ${filtro}`, sumarDias(fecha, 1), ...sp),
+        turnosManana: n(`SELECT COUNT(*) c FROM turnos WHERE fecha = ? AND estado = 'en_espera' ${filtro}`, sumarDias(hasta, 1), ...sp),
         puntos: n(`SELECT COALESCE(SUM(puntos),0) c FROM puntos_historial WHERE puntos > 0 AND fecha >= ? AND fecha < ? ${sucursalId ? 'AND sucursal_id = ?' : ''}`, r.desde, r.hasta, ...sp),
         tecnicos: [...porTec.entries()].map(([nombre, a]) => ({ nombre, n: a.length, promMin: avg(a) })).sort((x, y) => y.n - x.n),
         promMin: avg(todas),
@@ -40,41 +40,44 @@ export function resumenDia(fecha: string, sucursalId: number | null): ResumenDia
 }
 
 export function textoInforme(r: ResumenDia): string {
-    const l = [`📊 Nozieres · Cierre del ${fechaCorta(r.fecha)}`, `📍 ${r.sucursal}`, '',
-        `🔧 Órdenes abiertas hoy: ${r.abiertas}`, `✅ Terminadas hoy: ${r.terminadas}`, `⏳ Siguen en proceso: ${r.enProceso}`,
-        `⏱️ Tiempo promedio: ${r.promMin !== null ? r.promMin + ' min' : 's/d'}`, `⭐ Puntos acreditados: ${r.puntos}`, `📅 Turnos para mañana: ${r.turnosManana}`];
+    const rango = r.hasta !== r.fecha;
+    const cuando = rango ? 'en el período' : 'hoy';
+    const l = [`📊 Nozieres · ${rango ? `Informe del ${fechaCorta(r.fecha)} al ${fechaCorta(r.hasta)}` : `Cierre del ${fechaCorta(r.fecha)}`}`, `📍 ${r.sucursal}`, '',
+        `🔧 Órdenes abiertas ${cuando}: ${r.abiertas}`, `✅ Terminadas ${cuando}: ${r.terminadas}`, `⏳ Siguen en proceso: ${r.enProceso}`,
+        `⏱️ Tiempo promedio: ${r.promMin !== null ? r.promMin + ' min' : 's/d'}`, `⭐ Puntos acreditados: ${r.puntos}`, `📅 Turnos ${rango ? 'próximos' : 'para mañana'}: ${r.turnosManana}`];
     if (r.tecnicos.length) { l.push('', 'Por técnico:'); for (const t of r.tecnicos) l.push(`• ${t.nombre}: ${t.n}${t.promMin !== null ? ` (prom. ${t.promMin} min)` : ''}`); }
     if (r.mensajesError) l.push('', `⚠️ Hay ${r.mensajesError} mensajes con error en la bandeja.`);
     return l.join('\n');
 }
 
 /** Informe consolidado + desglose por sucursal (lo que recibe quien no está atado a una sola sucursal). */
-export function textoInformeCompleto(fecha: string, sucursalId: number | null): string {
-    const base = textoInforme(resumenDia(fecha, sucursalId));
+export function textoInformeCompleto(fecha: string, sucursalId: number | null, hasta: string = fecha): string {
+    const base = textoInforme(resumenDia(fecha, sucursalId, hasta));
     if (sucursalId) return base;
     const sucs = db.prepare('SELECT id, nombre FROM sucursales WHERE activa IS NULL OR activa = 1 ORDER BY id').all() as { id: number; nombre: string }[];
     if (sucs.length < 2) return base;
     const bloques = sucs.map(sc => {
-        const r = resumenDia(fecha, sc.id);
+        const r = resumenDia(fecha, sc.id, hasta);
         const l = [`━━━━━━━━━━`, `📍 ${sc.nombre}`,
             `🔧 Abiertas: ${r.abiertas} · ✅ Terminadas: ${r.terminadas} · ⏳ En proceso: ${r.enProceso}`,
-            `⏱️ Tiempo prom.: ${r.promMin !== null ? r.promMin + ' min' : 's/d'} · ⭐ Puntos: ${r.puntos} · 📅 Turnos mañana: ${r.turnosManana}`];
+            `⏱️ Tiempo prom.: ${r.promMin !== null ? r.promMin + ' min' : 's/d'} · ⭐ Puntos: ${r.puntos} · 📅 Turnos: ${r.turnosManana}`];
         if (r.tecnicos.length) for (const t of r.tecnicos) l.push(`• ${t.nombre}: ${t.n}${t.promMin !== null ? ` (prom. ${t.promMin} min)` : ''}`);
         return l.join('\n');
     });
     return `${base}\n\nDesglose por sucursal:\n${bloques.join('\n')}`;
 }
 
-export function generarInformesDelDia(fecha = fechaAR()): number {
+export function generarInformesDelDia(fecha = fechaAR(), hasta: string = fecha): number {
     if (cfg('informe_activo', '1') !== '1') return 0;
     const dest = db.prepare('SELECT * FROM destinatarios_informe WHERE activo = 1').all() as any[];
     let n = 0;
     // Los informes son para gerencia: un único informe consolidado (con desglose por sucursal), que sale desde Central.
-    const cuerpo = textoInformeCompleto(fecha, null);
+    const cuerpo = textoInformeCompleto(fecha, null, hasta);
+    const sufijo = hasta === fecha ? '' : `:${hasta}`;
     for (const d of dest) {
         const destino = d.canal === 'whatsapp' ? (d.destino as string).replace(/\D/g, '') : d.destino;
         const r = db.prepare(`INSERT OR IGNORE INTO mensajes (tipo, canal, sucursal_id, destino, asunto, cuerpo, clave_unica, estado) VALUES ('informe_diario', ?, NULL, ?, ?, ?, ?, 'pendiente')`)
-            .run(d.canal, destino, `Nozieres · cierre del ${fechaCorta(fecha)}`, cuerpo, `informe:${fecha}:${d.id}`);
+            .run(d.canal, destino, hasta === fecha ? `Nozieres · cierre del ${fechaCorta(fecha)}` : `Nozieres · informe del ${fechaCorta(fecha)} al ${fechaCorta(hasta)}`, cuerpo, `informe:${fecha}${sufijo}:${d.id}`);
         n += r.changes;
     }
     return n;
