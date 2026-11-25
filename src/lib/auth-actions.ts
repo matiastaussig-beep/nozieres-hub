@@ -4,6 +4,7 @@ import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import db from './db';
+import crypto from 'crypto';
 import { hashPassword, verifyPassword } from './password';
 import { SESSION_COOKIE, SESSION_DAYS, createSessionToken } from './session-token';
 import { ACTIVE_BRANCH_COOKIE, getSesion, requirePermiso, Rol } from './auth';
@@ -68,7 +69,7 @@ export async function cambiarSucursalAction(valor: string) {
 }
 
 // --- Administración de usuarios (sólo administrador) ---
-const ROLES: Rol[] = ['administrador', 'vendedor', 'tecnico'];
+const ROLES: Rol[] = ['administrador', 'vendedor', 'cajera', 'tecnico'];
 
 export async function crearUsuarioAction(formData: FormData): Promise<void> {
     await requirePermiso('usuarios');
@@ -113,4 +114,42 @@ export async function actualizarUsuarioAction(formData: FormData): Promise<void>
     try { tx(); } catch { redirect('/configuracion/usuarios?error=datos'); }
     revalidatePath('/configuracion/usuarios');
     redirect('/configuracion/usuarios?ok=guardado');
+}
+
+// --- Alta rápida: una línea por persona "Nombre; usuario; rol; sucursal". El sistema genera la clave temporal y la muestra UNA vez. ---
+export interface AltaRapidaResultado {
+    creados: { nombre: string; username: string; rol: string; sucursales: string; clave: string }[];
+    omitidos: string[];
+}
+
+function claveTemporal(): string {
+    const abc = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789';   // sin letras que se confunden (l, I, 1, O, 0)
+    const b = crypto.randomBytes(10);
+    return Array.from(b, x => abc[x % abc.length]).join('');
+}
+
+export async function altaRapidaUsuariosAction(_prev: AltaRapidaResultado | null, formData: FormData): Promise<AltaRapidaResultado> {
+    await requirePermiso('usuarios');
+    const lineas = String(formData.get('lista') || '').split('\n').map(l => l.trim()).filter(Boolean);
+    const sucs = db.prepare('SELECT id, nombre FROM sucursales WHERE activa = 1').all() as { id: number; nombre: string }[];
+    const res: AltaRapidaResultado = { creados: [], omitidos: [] };
+    const normal = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+    for (const linea of lineas.slice(0, 40)) {
+        const [nombre = '', usernameRaw = '', rolRaw = '', sucRaw = ''] = linea.split(';').map(x => x.trim());
+        const username = usernameRaw.toLowerCase();
+        const rol = normal(rolRaw) as Rol;
+        if (!nombre || !/^[a-z0-9._-]{3,30}$/.test(username) || !ROLES.includes(rol)) { res.omitidos.push(`${linea} → revisá nombre, usuario (3+ letras/números sin espacios) y rol`); continue; }
+        if (db.prepare('SELECT 1 FROM usuarios WHERE lower(username) = ?').get(username)) { res.omitidos.push(`${nombre} (${username}) → ese usuario ya existe`); continue; }
+        const ids = rol === 'administrador' ? [] : sucs.filter(s => sucRaw && sucRaw.split('/').some(t => normal(s.nombre).includes(normal(t)))).map(s => s.id);
+        if (rol !== 'administrador' && !ids.length) { res.omitidos.push(`${nombre} (${username}) → no encontré la sucursal "${sucRaw}"`); continue; }
+        const clave = claveTemporal();
+        db.transaction(() => {
+            const r = db.prepare('INSERT INTO usuarios (nombre, username, password_hash, rol, debe_cambiar_clave) VALUES (?,?,?,?,1)').run(nombre, username, hashPassword(clave), rol);
+            const ins = db.prepare('INSERT OR IGNORE INTO usuario_sucursales (usuario_id, sucursal_id) VALUES (?,?)');
+            for (const sid of ids) ins.run(Number(r.lastInsertRowid), sid);
+        })();
+        res.creados.push({ nombre, username, rol, sucursales: rol === 'administrador' ? 'todas' : sucs.filter(s => ids.includes(s.id)).map(s => s.nombre).join(' / '), clave });
+    }
+    revalidatePath('/configuracion/usuarios');
+    return res;
 }

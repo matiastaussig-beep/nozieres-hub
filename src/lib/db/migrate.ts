@@ -209,6 +209,13 @@ const migrations: Array<(db: Database.Database) => void> = [
         if (!cols.includes('avisos_whatsapp')) db.exec('ALTER TABLE clientes ADD COLUMN avisos_whatsapp INTEGER DEFAULT 1');
         if (!cols.includes('avisos_email')) db.exec('ALTER TABLE clientes ADD COLUMN avisos_email INTEGER DEFAULT 1');
     },
+    // v5: consulta postventa (apagada hasta terminar las pruebas) y rol cajera (sin cambios de esquema: el rol es texto)
+    (db) => {
+        const c = db.prepare('INSERT OR IGNORE INTO configuracion (clave, valor, descripcion) VALUES (?,?,?)');
+        c.run('postventa_activo', '0', 'Enviar la consulta postventa después de un servicio (1/0)');
+        c.run('postventa_dias', '3', 'Días después del cierre de la orden en que se hace la consulta postventa');
+        c.run('plantilla_postventa', 'Hola {cliente}! Pasaron unos días desde el servicio de tu {vehiculo} ({patente}). ¿Cómo anda? Si algo no quedó bien o tenés alguna consulta, respondé este mensaje. Gracias por elegir Nozieres!', 'Consulta postventa');
+    },
 ];
 
 export function runMigrations(db: Database.Database) {

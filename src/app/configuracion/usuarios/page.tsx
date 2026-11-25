@@ -1,6 +1,7 @@
 import db from '@/lib/db';
 import { requireSesion, ROL_NOMBRE } from '@/lib/auth';
 import { crearUsuarioAction, actualizarUsuarioAction } from '@/lib/auth-actions';
+import AltaRapida from './AltaRapida';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,7 +17,7 @@ export default async function UsuariosPage({ searchParams }: { searchParams: Pro
     const sucursales = db.prepare('SELECT id, nombre FROM sucursales WHERE activa = 1 ORDER BY id').all() as { id: number; nombre: string }[];
     const usuarios = db.prepare('SELECT id, nombre, username, rol, activo, ultimo_acceso FROM usuarios ORDER BY activo DESC, rol, nombre').all() as any[];
     const asign = db.prepare('SELECT usuario_id, sucursal_id FROM usuario_sucursales').all() as { usuario_id: number; sucursal_id: number }[];
-    const roles = ['administrador', 'vendedor', 'tecnico'] as const;
+    const roles = ['administrador', 'vendedor', 'cajera', 'tecnico'] as const;
 
     return (
         <main className="main-container" style={{ alignItems: 'flex-start', justifyContent: 'flex-start' }}>
@@ -24,13 +25,15 @@ export default async function UsuariosPage({ searchParams }: { searchParams: Pro
                 <div>
                     <h1 className="page-title">Usuarios y permisos</h1>
                     <p className="app-subtitle" style={{ marginBottom: 0 }}>
-                        Administrador: ve todo y todas las sucursales. Vendedor: clientes, agenda y recepción. Técnico: agenda del día y sus órdenes.
+                        Administrador: ve todo y todas las sucursales. Vendedor y Cajera: clientes, agenda, recepción y mensajes a clientes. Técnico: agenda del día y sus órdenes.
                         Un usuario puede trabajar en más de una sucursal.
                     </p>
                 </div>
             </div>
             {error && <p style={{ color: '#f87171' }}>⚠️ {ERR[error] || 'Error'}</p>}
             {ok && <p style={{ color: '#4ade80' }}>✓ Listo.</p>}
+
+            <AltaRapida />
 
             <div className="table-container" style={{ padding: '1.2rem', width: '100%' }}>
                 <h2 style={{ marginBottom: '.8rem' }}>Nuevo usuario</h2>

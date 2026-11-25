@@ -27,17 +27,25 @@ export function hacerBackup() {
     return dest;
 }
 
+/** Día de la semana en Argentina: 0 = domingo ... 6 = sábado. */
+function diaSemana(fechaISO: string) { return new Date(`${fechaISO}T12:00:00-03:00`).getDay(); }
+const esHabil = (fechaISO: string) => { const d = diaSemana(fechaISO); return d >= 1 && d <= 5; };
+
+/**
+ * Prepara los avisos a clientes (turno, service por vencer, postventa) dos veces por día hábil: a las 8:00 y a las 16:00.
+ * Quedan listos en la bandeja de Mensajes para que el vendedor o la cajera los mande. `clave_unica` evita repetirlos.
+ */
 export function encolarRecordatorios(hoy: string, hora: string) {
+    if (!esHabil(hoy)) return;                        // sólo lunes a viernes
     const h = Number(hora.slice(0, 2));
-    if (h < 9 || h >= 20) return;                    // sólo en horario razonable para escribirle a un cliente
-    // Turnos: aviso N horas antes (por defecto 24)
-    const horas = Number(cfg('turno_recordatorio_horas', '24')) || 24;
-    const limite = new Date(Date.now() + horas * 3600e3);
-    const limFecha = fechaAR(limite);
-    const turnos = db.prepare(`SELECT id, cliente_id, vehiculo_id, sucursal_id, fecha, hora FROM turnos WHERE estado = 'en_espera' AND cliente_id IS NOT NULL AND fecha >= ? AND fecha <= ?`).all(hoy, limFecha) as any[];
+    if (h < 8 || h >= 20) return;
+    const tarde = h >= 16;
+    // Turnos: a la mañana los de hoy; a la tarde los del próximo día hábil (el viernes, hasta el lunes inclusive)
+    const hasta = !tarde ? hoy : diaSemana(hoy) === 5 ? sumarDias(hoy, 3) : sumarDias(hoy, 1);
+    const turnos = db.prepare(`SELECT id, cliente_id, vehiculo_id, sucursal_id, fecha, hora FROM turnos WHERE estado = 'en_espera' AND cliente_id IS NOT NULL AND fecha >= ? AND fecha <= ?`).all(hoy, hasta) as any[];
     for (const t of turnos) {
         const ts = Date.parse(`${t.fecha}T${t.hora || '09:00'}:00-03:00`);
-        if (ts - Date.now() <= horas * 3600e3 && ts > Date.now()) encolarMensajeCliente('turno_recordatorio', { cliente_id: t.cliente_id, turno_id: t.id, sucursal_id: t.sucursal_id, vehiculo_id: t.vehiculo_id, fecha: t.fecha, hora: t.hora }, `turnoauto:${t.id}`);
+        if (ts > Date.now()) encolarMensajeCliente('turno_recordatorio', { cliente_id: t.cliente_id, turno_id: t.id, sucursal_id: t.sucursal_id, vehiculo_id: t.vehiculo_id, fecha: t.fecha, hora: t.hora }, `turnoauto:${t.id}`);
     }
     // Service próximo a vencer: sólo la última orden terminada de cada vehículo
     if (cfg('recordatorio_service_activo', '0') === '1') {
@@ -47,6 +55,16 @@ export function encolarRecordatorios(hoy: string, hora: string) {
             WHERE o.estado = 'terminada' AND o.proximo_servicio_fecha BETWEEN ? AND ?
               AND NOT EXISTS (SELECT 1 FROM ordenes_trabajo o2 WHERE o2.vehiculo_id = o.vehiculo_id AND o2.id > o.id)`).all(hoy, sumarDias(hoy, dias)) as any[];
         for (const o of filas) encolarMensajeCliente('service_proximo', { cliente_id: o.cliente_id, orden_id: o.id, sucursal_id: o.sucursal_id, vehiculo_id: o.vehiculo_id, fecha: o.f }, `service:${o.id}`);
+    }
+    // Postventa: N días después del cierre. Sólo órdenes cerradas en el sistema nuevo (no el historial importado).
+    if (cfg('postventa_activo', '0') === '1') {
+        const dias = Number(cfg('postventa_dias', '3')) || 3;
+        const desde = new Date(`${sumarDias(hoy, -dias - 4)}T00:00:00-03:00`).toISOString();   // margen de 4 días por fines de semana
+        const hastaISO = new Date(`${sumarDias(hoy, -dias + 1)}T00:00:00-03:00`).toISOString();
+        const filas = db.prepare(`
+            SELECT o.id, o.sucursal_id, o.vehiculo_id, v.cliente_id FROM ordenes_trabajo o JOIN vehiculos v ON v.id = o.vehiculo_id
+            WHERE o.estado = 'terminada' AND o.iniciada_at LIKE '%-%' AND o.cerrada_at >= ? AND o.cerrada_at < ?`).all(desde, hastaISO) as any[];
+        for (const o of filas) encolarMensajeCliente('postventa', { cliente_id: o.cliente_id, orden_id: o.id, sucursal_id: o.sucursal_id, vehiculo_id: o.vehiculo_id }, `postventa:${o.id}`);
     }
 }
 
@@ -82,7 +100,8 @@ export async function tick() {
         const horaInforme = cfg('informe_hora', '20:30');
         if (hora >= horaInforme && !yaCorrio('informe', hoy)) { generarInformesDelDia(hoy); marcar('informe', hoy); }
         if (hora >= '03:00' && hora < '06:00' && !yaCorrio('backup', hoy)) { hacerBackup(); marcar('backup', hoy); }
-        if (!yaCorrio(`recordatorios:${hora.slice(0, 2)}`, hoy)) { encolarRecordatorios(hoy, hora); marcar(`recordatorios:${hora.slice(0, 2)}`, hoy); }
+        const franja = Number(hora.slice(0, 2)) >= 16 ? 'tarde' : 'manana';            // 8:00 y 16:00, lunes a viernes
+        if (Number(hora.slice(0, 2)) >= 8 && !yaCorrio(`recordatorios:${franja}`, hoy)) { encolarRecordatorios(hoy, hora); marcar(`recordatorios:${franja}`, hoy); }
         await enviarPendientes();
     } catch (e) { console.error('[scheduler]', e); }
     finally { corriendo = false; }

@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import db from './db';
 import { SESSION_COOKIE, readSessionToken } from './session-token';
 
-export type Rol = 'administrador' | 'vendedor' | 'tecnico';
+export type Rol = 'administrador' | 'vendedor' | 'cajera' | 'tecnico';
 
 export interface Sesion {
     id: number;
@@ -22,18 +22,18 @@ const PERMISOS: Record<string, Rol[]> = {
     'configuracion':    ['administrador'],
     'usuarios':         ['administrador'],
     'puntos.control':   ['administrador'],
-    'puntos.canje':     ['administrador', 'vendedor'],
-    'clientes.ver':     ['administrador', 'vendedor'],
-    'clientes.editar':  ['administrador', 'vendedor'],
-    'vehiculos.ver':    ['administrador', 'vendedor', 'tecnico'],
-    'vehiculos.editar': ['administrador', 'vendedor'],
-    'agenda.ver':       ['administrador', 'vendedor', 'tecnico'],
-    'agenda.editar':    ['administrador', 'vendedor'],
-    'ordenes.ver':      ['administrador', 'vendedor', 'tecnico'],
-    'ordenes.abrir':    ['administrador', 'vendedor', 'tecnico'],
-    'ordenes.cerrar':   ['administrador', 'vendedor', 'tecnico'],
-    'ordenes.editar':   ['administrador', 'vendedor'],
-    'mensajes':         ['administrador', 'vendedor'],
+    'puntos.canje':     ['administrador', 'vendedor', 'cajera'],
+    'clientes.ver':     ['administrador', 'vendedor', 'cajera'],
+    'clientes.editar':  ['administrador', 'vendedor', 'cajera'],
+    'vehiculos.ver':    ['administrador', 'vendedor', 'cajera', 'tecnico'],
+    'vehiculos.editar': ['administrador', 'vendedor', 'cajera'],
+    'agenda.ver':       ['administrador', 'vendedor', 'cajera', 'tecnico'],
+    'agenda.editar':    ['administrador', 'vendedor', 'cajera'],
+    'ordenes.ver':      ['administrador', 'vendedor', 'cajera', 'tecnico'],
+    'ordenes.abrir':    ['administrador', 'vendedor', 'cajera', 'tecnico'],
+    'ordenes.cerrar':   ['administrador', 'vendedor', 'cajera', 'tecnico'],
+    'ordenes.editar':   ['administrador', 'vendedor', 'cajera'],
+    'mensajes':         ['administrador', 'vendedor', 'cajera'],
     'capacitaciones':   ['administrador'],
 };
 
@@ -41,7 +41,7 @@ export function can(rol: Rol | undefined, permiso: string): boolean {
     return !!rol && (PERMISOS[permiso] || []).includes(rol);
 }
 
-export const ROL_NOMBRE: Record<Rol, string> = { administrador: 'Administrador', vendedor: 'Vendedor', tecnico: 'Técnico' };
+export const ROL_NOMBRE: Record<Rol, string> = { administrador: 'Administrador', vendedor: 'Vendedor', cajera: 'Cajera', tecnico: 'Técnico' };
 export const ACTIVE_BRANCH_COOKIE = 'nh_sucursal';
 
 /** Sesión actual leída de la cookie firmada + estado real en la base (usuario activo, rol, sucursales). */

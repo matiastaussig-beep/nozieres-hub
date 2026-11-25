@@ -9,6 +9,11 @@ export const dynamic = 'force-dynamic';
 
 export default async function AgendaPage({ searchParams }: { searchParams: Promise<{ fecha?: string; ok?: string; error?: string }> }) {
     const ses = await requireSesion('agenda.ver');
+    let avisosPendientes = 0;
+    if (ses.rol === 'vendedor' || ses.rol === 'cajera') {
+        const sc = sucursalesVisibles(ses);
+        avisosPendientes = (db.prepare(`SELECT COUNT(*) c FROM mensajes WHERE estado IN ('manual','error') AND tipo != 'informe_diario' AND (sucursal_id IS NULL OR sucursal_id IN (${sc.map(() => '?').join(',')}))`).get(...sc) as { c: number }).c;
+    }
     const sp = await searchParams;
     const hoy = fechaAR();
     const fecha = /^\d{4}-\d{2}-\d{2}$/.test(sp.fecha || '') ? sp.fecha! : hoy;
@@ -29,6 +34,12 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
 
     return (
         <main className="main-container" style={{ alignItems: 'flex-start', justifyContent: 'flex-start', gap: '1rem' }}>
+            {avisosPendientes > 0 && (
+                <Link href="/mensajes" className="card" style={{ width: '100%', borderColor: '#f59e0b', display: 'flex', alignItems: 'center', gap: '.8rem' }}>
+                    <span style={{ fontSize: '1.4rem' }}>💬</span>
+                    <span><strong>{avisosPendientes} mensaje{avisosPendientes === 1 ? '' : 's'} para enviar a clientes.</strong> Tocá acá para mandarlos con un clic.</span>
+                </Link>
+            )}
             <div className="page-header" style={{ width: '100%' }}>
                 <div>
                     <h1 className="page-title">Agenda · <span style={{ textTransform: 'capitalize' }}>{fechaLarga}</span></h1>

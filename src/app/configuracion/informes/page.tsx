@@ -59,19 +59,21 @@ export default async function InformesConfig({ searchParams }: { searchParams: P
 
             <form action={guardarAjustesMensajesAction} className="card" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <h3>Ajustes</h3>
+                <p style={{ fontSize: '.8rem', color: 'var(--text-muted)', marginTop: '-.5rem' }}>Los recordatorios de turno, service y postventa se preparan de lunes a viernes a las 8:00 y a las 16:00, listos en la bandeja de Mensajes.</p>
                 <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
                     <label><input type="checkbox" name="informe_activo" defaultChecked={chk('informe_activo')} /> Enviar informe de cierre</label>
                     <label><input type="checkbox" name="mensajes_activos" defaultChecked={chk('mensajes_activos')} /> Mensajes a clientes</label>
                     <label><input type="checkbox" name="recordatorio_service_activo" defaultChecked={chk('recordatorio_service_activo')} /> Avisar service por vencer (activar cuando esté todo probado)</label>
+                    <label><input type="checkbox" name="postventa_activo" defaultChecked={chk('postventa_activo')} /> Consulta postventa (activar cuando esté todo probado)</label>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: '1rem' }}>
                     <div className="form-group"><label>Hora del informe</label><input className="form-input" type="time" name="informe_hora" defaultValue={T('informe_hora')} /></div>
                     <div className="form-group"><label>Avisar service con (días)</label><input className="form-input" type="number" name="recordatorio_service_dias" defaultValue={T('recordatorio_service_dias')} /></div>
                     <div className="form-group"><label>Próximo service por defecto (meses)</label><input className="form-input" type="number" name="proximo_service_meses" defaultValue={T('proximo_service_meses')} /></div>
-                    <div className="form-group"><label>Recordar turno (horas antes)</label><input className="form-input" type="number" name="turno_recordatorio_horas" defaultValue={T('turno_recordatorio_horas')} /></div>
+                    <div className="form-group"><label>Postventa a los (días del cierre)</label><input className="form-input" type="number" name="postventa_dias" defaultValue={T('postventa_dias')} /></div>
                 </div>
                 <p style={{ fontSize: '.78rem', color: 'var(--text-muted)' }}>Variables en los textos: {'{cliente} {vehiculo} {patente} {sucursal} {fecha} {hora} {portal}'}</p>
-                {([['plantilla_recibimos', 'Recibimos tu auto'], ['plantilla_listo', 'Tu auto está listo'], ['plantilla_service', 'Service por vencer'], ['plantilla_turno', 'Recordatorio de turno']] as const).map(([k, l]) => (
+                {([['plantilla_recibimos', 'Recibimos tu auto'], ['plantilla_listo', 'Tu auto está listo'], ['plantilla_service', 'Service por vencer'], ['plantilla_turno', 'Recordatorio de turno'], ['plantilla_postventa', 'Consulta postventa']] as const).map(([k, l]) => (
                     <div className="form-group" key={k}><label>{l}</label><textarea className="form-input" name={k} rows={2} defaultValue={T(k)} /></div>))}
                 <button className="btn-primary" style={{ alignSelf: 'flex-end' }} type="submit">Guardar ajustes</button>
             </form>

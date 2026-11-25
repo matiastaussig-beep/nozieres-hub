@@ -2,7 +2,7 @@ import db from './db';
 import { fechaCorta } from './tiempo';
 import crypto from 'crypto';
 
-export type TipoMensaje = 'recibimos_auto' | 'auto_listo' | 'service_proximo' | 'informe_diario' | 'turno_recordatorio';
+export type TipoMensaje = 'recibimos_auto' | 'auto_listo' | 'service_proximo' | 'informe_diario' | 'turno_recordatorio' | 'postventa';
 
 export function cfg(clave: string, def = ''): string {
     const r = db.prepare('SELECT valor FROM configuracion WHERE clave = ?').get(clave) as { valor: string } | undefined;
@@ -60,7 +60,7 @@ export function encolarMensajeCliente(tipo: Exclude<TipoMensaje, 'informe_diario
         : ctx.orden_id ? db.prepare('SELECT v.marca, v.modelo, v.patente FROM ordenes_trabajo o JOIN vehiculos v ON v.id = o.vehiculo_id WHERE o.id = ?').get(ctx.orden_id) as any : null;
     const suc = ctx.sucursal_id ? db.prepare('SELECT nombre FROM sucursales WHERE id = ?').get(ctx.sucursal_id) as { nombre: string } | undefined : undefined;
     const portal = baseUrl() ? `${baseUrl()}/p/${tokenPortal(cli.id)}` : '';
-    const plantillaKey = tipo === 'recibimos_auto' ? 'plantilla_recibimos' : tipo === 'auto_listo' ? 'plantilla_listo' : tipo === 'turno_recordatorio' ? 'plantilla_turno' : 'plantilla_service';
+    const plantillaKey = tipo === 'recibimos_auto' ? 'plantilla_recibimos' : tipo === 'auto_listo' ? 'plantilla_listo' : tipo === 'turno_recordatorio' ? 'plantilla_turno' : tipo === 'postventa' ? 'plantilla_postventa' : 'plantilla_service';
     const cuerpo = render(cfg(plantillaKey), {
         cliente: (cli.nombre || '').split(' ')[0] || 'cliente',
         vehiculo: [veh?.marca, veh?.modelo].filter(Boolean).join(' ') || 'vehículo',
@@ -83,7 +83,7 @@ export function encolarMensajeCliente(tipo: Exclude<TipoMensaje, 'informe_diario
     // Mail: sólo si lo aceptó y tiene un email válido
     const mail = (cli.email || '').trim();
     if (cli.avisos_email !== 0 && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(mail)) {
-        const asuntos: Record<string, string> = { recibimos_auto: 'Recibimos tu vehículo', auto_listo: 'Tu vehículo está listo', service_proximo: 'Tu service está por vencer', turno_recordatorio: 'Recordatorio de tu turno' };
+        const asuntos: Record<string, string> = { recibimos_auto: 'Recibimos tu vehículo', auto_listo: 'Tu vehículo está listo', service_proximo: 'Tu service está por vencer', turno_recordatorio: 'Recordatorio de tu turno', postventa: '¿Cómo te fue con tu vehículo?' };
         const r = db.prepare(`INSERT OR IGNORE INTO mensajes (tipo, canal, cliente_id, orden_id, turno_id, sucursal_id, destino, asunto, cuerpo, clave_unica, programado_para, estado)
                               VALUES (?, 'email', ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')), 'pendiente')`)
             .run(tipo, cli.id, ctx.orden_id ?? null, ctx.turno_id ?? null, ctx.sucursal_id ?? null, mail, `${asuntos[tipo] || 'Aviso'} · Nozieres`, cuerpo, `${claveUnica}:mail`, programadoPara ?? null);

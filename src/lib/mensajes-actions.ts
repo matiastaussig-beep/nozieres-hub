@@ -61,10 +61,10 @@ export async function enviarInformeAhoraAction(fd: FormData): Promise<void> {
 
 export async function guardarAjustesMensajesAction(formData: FormData): Promise<void> {
     await requirePermiso('configuracion');
-    const claves = ['informe_hora', 'informe_activo', 'mensajes_activos', 'recordatorio_service_activo', 'recordatorio_service_dias', 'proximo_service_meses', 'turno_recordatorio_horas', 'plantilla_recibimos', 'plantilla_listo', 'plantilla_service', 'plantilla_turno'];
+    const claves = ['informe_hora', 'informe_activo', 'mensajes_activos', 'recordatorio_service_activo', 'recordatorio_service_dias', 'postventa_activo', 'postventa_dias', 'proximo_service_meses', 'plantilla_recibimos', 'plantilla_listo', 'plantilla_service', 'plantilla_turno', 'plantilla_postventa'];
     const up = db.prepare("INSERT INTO configuracion (clave, valor) VALUES (?, ?) ON CONFLICT(clave) DO UPDATE SET valor = excluded.valor");
     for (const k of claves) {
-        if (['informe_activo', 'mensajes_activos', 'recordatorio_service_activo'].includes(k)) up.run(k, formData.get(k) ? '1' : '0');
+        if (['informe_activo', 'mensajes_activos', 'recordatorio_service_activo', 'postventa_activo'].includes(k)) up.run(k, formData.get(k) ? '1' : '0');
         else if (formData.has(k)) {
             const v = String(formData.get(k) || '').trim();
             if (k === 'informe_hora' && !/^\d{2}:\d{2}$/.test(v)) continue;

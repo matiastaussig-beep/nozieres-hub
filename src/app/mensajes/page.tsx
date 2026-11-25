@@ -5,7 +5,7 @@ import { marcarMensajeAction } from '@/lib/mensajes-actions';
 import { waConfigurado, smtpConfigurado } from '@/lib/providers';
 
 export const dynamic = 'force-dynamic';
-const TIPO: Record<string, string> = { recibimos_auto: 'Recibimos tu auto', auto_listo: 'Tu auto está listo', service_proximo: 'Service por vencer', turno_recordatorio: 'Recordatorio de turno', informe_diario: 'Informe del día' };
+const TIPO: Record<string, string> = { recibimos_auto: 'Recibimos tu auto', auto_listo: 'Tu auto está listo', service_proximo: 'Service por vencer', turno_recordatorio: 'Recordatorio de turno', postventa: 'Consulta postventa', informe_diario: 'Informe del día' };
 const EST: Record<string, string> = { pendiente: 'badge-espera', manual: 'badge-espera', enviado: 'badge-terminada', error: 'badge-error', descartado: '' };
 
 export default async function MensajesPage({ searchParams }: { searchParams: Promise<{ estado?: string }> }) {
