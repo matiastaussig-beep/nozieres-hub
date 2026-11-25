@@ -6,6 +6,7 @@ import { requireSesion, puedeVerSucursal, can } from '@/lib/auth';
 import { listarArchivos } from '@/lib/files';
 import { duracionMin, fmtDur, ESTADO_CLASE, ESTADO_LABEL } from '@/lib/queries';
 import { fechaCorta } from '@/lib/tiempo';
+import AvisoWhatsApp from '@/components/AvisoWhatsApp';
 
 export const dynamic = 'force-dynamic';
 const CAT: Record<string, string> = { foto_frente: 'Frente', foto_trasera: 'Trasera', foto_lateral_izq: 'Lateral izq.', foto_lateral_der: 'Lateral der.', foto_tablero: 'Tablero', foto_salida: 'Salida' };
@@ -24,9 +25,14 @@ export default async function OrdenDetalle({ params, searchParams }: { params: P
     const listaServicios = [...JSON.parse(o.servicios_autos || '[]'), ...JSON.parse(o.servicios_camioneta || '[]'), ...JSON.parse(o.servicios_camion || '[]'), ...JSON.parse(o.complementos || '[]')] as string[];
     const puntos = db.prepare('SELECT puntos FROM puntos_historial WHERE orden_id = ? AND puntos > 0 LIMIT 1').get(id) as { puntos: number } | undefined;
     const abierta = o.estado === 'en_proceso';
+    // Cartel emergente para acordarse de mandar el WhatsApp al abrir o cerrar la orden
+    const aviso = (sp.avisar === 'recibimos' || sp.avisar === 'listo')
+        ? db.prepare("SELECT id, destino, cuerpo FROM mensajes WHERE clave_unica = ? AND canal = 'whatsapp' AND estado IN ('manual','pendiente') AND destino IS NOT NULL").get(`${sp.avisar === 'recibimos' ? 'recibimos' : 'listo'}:${id}`) as { id: number; destino: string; cuerpo: string } | undefined
+        : undefined;
 
     return (
         <main className="main-container" style={{ alignItems: 'flex-start', justifyContent: 'flex-start', gap: '1rem' }}>
+            {aviso && <AvisoWhatsApp mensajeId={aviso.id} destino={aviso.destino} cuerpo={aviso.cuerpo} titulo={sp.avisar === 'recibimos' ? 'Avisale al cliente que recibimos su vehículo' : 'Avisale al cliente que su vehículo está listo'} />}
             <div className="page-header" style={{ width: '100%' }}>
                 <div>
                     <h1 className="page-title">Orden #{String(id).padStart(4, '0')} · {o.patente} <span className={`badge ${ESTADO_CLASE[o.estado]}`}>{ESTADO_LABEL[o.estado] || o.estado}</span></h1>
@@ -39,7 +45,7 @@ export default async function OrdenDetalle({ params, searchParams }: { params: P
                     {!abierta && can(ses.rol, 'puntos.canje') && <Link href={`/ordenes/${id}/canje`} className="btn-primary" style={{ background: 'var(--glass-bg)', color: 'white', border: '1px solid var(--glass-border)' }}><Award size={18} /> Puntos</Link>}
                 </div>
             </div>
-            {sp.cerrada && <p style={{ color: '#4ade80' }}>✓ Orden terminada{puntos ? ` · se acreditaron ${puntos.puntos} puntos al cliente` : ''}. Se avisó al cliente que su vehículo está listo.</p>}
+            {sp.cerrada && <p style={{ color: '#4ade80' }}>✓ Orden terminada{puntos ? ` · se acreditaron ${puntos.puntos} puntos al cliente` : ''}. El aviso al cliente va por mail y por WhatsApp (cartel de arriba).</p>}
             {sp.duplicada && <p style={{ color: '#fbbf24' }}>Este vehículo ya tenía una orden abierta: estás viendo esa.</p>}
             {sp.aviso && <p style={{ color: '#fbbf24' }}>⚠️ {sp.aviso}</p>}
 

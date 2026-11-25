@@ -61,7 +61,7 @@ export async function abrirOrdenAction(formData: FormData): Promise<void> {
 
     encolarMensajeCliente('recibimos_auto', { cliente_id: veh.cliente_id, orden_id: id, sucursal_id }, `recibimos:${id}`);
     revalidatePath('/ordenes'); revalidatePath('/agenda');
-    redirect(`/ordenes/${id}${errorArchivos ? `?aviso=${encodeURIComponent(errorArchivos)}` : ''}`);
+    redirect(`/ordenes/${id}?avisar=recibimos${errorArchivos ? `&aviso=${encodeURIComponent(errorArchivos)}` : ''}`);
 }
 
 /** Edición de datos de una orden (queda registrada quién y por qué). */
@@ -125,5 +125,15 @@ export async function cerrarOrdenAction(id: number, formData: FormData): Promise
 
     encolarMensajeCliente('auto_listo', { cliente_id: o.cliente_id, orden_id: id, sucursal_id: o.sucursal_id }, `listo:${id}`);
     revalidatePath('/ordenes'); revalidatePath(`/ordenes/${id}`); revalidatePath('/agenda');
-    redirect(`/ordenes/${id}?cerrada=1`);
+    redirect(`/ordenes/${id}?cerrada=1&avisar=listo`);
+}
+
+/** Desde el cartel "Avisale al cliente por WhatsApp" que aparece al abrir o cerrar una orden. Cualquier rol que trabaja la orden puede marcarlo. */
+export async function marcarAvisoOrdenAction(mensajeId: number, estado: 'enviado' | 'descartado'): Promise<void> {
+    const ses = await requirePermiso('ordenes.abrir');
+    const m = db.prepare("SELECT id, sucursal_id, tipo FROM mensajes WHERE id = ? AND canal = 'whatsapp' AND tipo IN ('recibimos_auto','auto_listo')").get(mensajeId) as { id: number; sucursal_id: number | null; tipo: string } | undefined;
+    if (!m || !puedeVerSucursal(ses, m.sucursal_id)) return;
+    if (estado === 'enviado') db.prepare("UPDATE mensajes SET estado = 'enviado', enviado_at = datetime('now') WHERE id = ?").run(m.id);
+    else db.prepare("UPDATE mensajes SET estado = 'descartado' WHERE id = ?").run(m.id);
+    revalidatePath('/mensajes');
 }
