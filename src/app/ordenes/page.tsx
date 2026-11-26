@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { PlusCircle, FileText, Edit, Clock, ChevronLeft, ChevronRight, Eye, CheckCircle2 } from 'lucide-react';
+import { PlusCircle, FileText, Edit, Clock, ChevronLeft, ChevronRight, Eye, CheckCircle2, PackageSearch } from 'lucide-react';
 import SearchInput from '@/components/SearchInput';
 import { requireSesion, sucursalesVisibles, can } from '@/lib/auth';
 import { listarOrdenes, duracionMin, fmtDur, ESTADO_CLASE, ESTADO_LABEL } from '@/lib/queries';
@@ -47,6 +47,7 @@ export default async function OrdenesPage({ searchParams }: { searchParams: Prom
                                     <Link href={`/ordenes/${ot.id}`} className="btn-primary" style={{ padding: '.35rem .7rem', fontSize: '.8rem' }}><Eye size={14} /> Ver</Link>
                                     {ot.estado === 'en_proceso' && <Link href={`/ordenes/${ot.id}#firma`} className="btn-primary" style={{ padding: '.35rem .7rem', fontSize: '.8rem', background: 'rgba(34,197,94,.15)', color: '#4ade80', border: '1px solid rgba(34,197,94,.35)' }}><CheckCircle2 size={14} /> Terminar</Link>}
                                     <Link href={`/ordenes/${ot.id}/imprimir`} className="btn-primary" style={{ padding: '.35rem .7rem', fontSize: '.8rem', background: 'rgba(255,255,255,.05)', color: 'white', border: '1px solid var(--glass-border)' }}><FileText size={14} /></Link>
+                                    <Link href={`/ordenes/${ot.id}/caja`} title="Control de caja" className="btn-primary" style={{ padding: '.35rem .7rem', fontSize: '.8rem', background: 'rgba(59,130,246,.1)', color: '#60a5fa', border: '1px solid rgba(59,130,246,.3)' }}><PackageSearch size={14} /> Caja</Link>
                                     {can(ses.rol, 'ordenes.editar') && <Link href={`/ordenes/${ot.id}/editar`} className="btn-primary" style={{ padding: '.35rem .7rem', fontSize: '.8rem', background: 'rgba(255,215,0,.1)', color: 'var(--accent)', border: '1px solid rgba(255,215,0,.2)' }}><Edit size={14} /></Link>}
                                 </div></td>
                             </tr>

@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { FileText, CheckCircle2, Edit, Award, Download, Camera, Clock, User, Wrench, Phone } from 'lucide-react';
+import { FileText, CheckCircle2, Edit, Award, Download, Camera, Clock, User, Wrench, Phone, PackageSearch } from 'lucide-react';
 import db from '@/lib/db';
 import { requireSesion, puedeVerSucursal, can } from '@/lib/auth';
 import { listarArchivos } from '@/lib/files';
@@ -45,6 +45,7 @@ export default async function OrdenDetalle({ params, searchParams }: { params: P
                 <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>
                     {abierta && can(ses.rol, 'ordenes.cerrar') && <a href="#firma" className="btn-primary"><CheckCircle2 size={18} /> Firma y terminar</a>}
                     <Link href={`/ordenes/${id}/imprimir`} className="btn-primary" style={{ background: 'var(--glass-bg)', color: 'white', border: '1px solid var(--glass-border)' }}><FileText size={18} /> Ficha / imprimir</Link>
+                    <Link href={`/ordenes/${id}/caja`} className="btn-primary" style={{ background: 'var(--glass-bg)', color: 'white', border: '1px solid var(--glass-border)' }}><PackageSearch size={18} /> Control de caja</Link>
                     {can(ses.rol, 'ordenes.editar') && <Link href={`/ordenes/${id}/editar`} className="btn-primary" style={{ background: 'var(--glass-bg)', color: 'white', border: '1px solid var(--glass-border)' }}><Edit size={18} /> Editar</Link>}
                     {!abierta && can(ses.rol, 'puntos.canje') && <Link href={`/ordenes/${id}/canje`} className="btn-primary" style={{ background: 'var(--glass-bg)', color: 'white', border: '1px solid var(--glass-border)' }}><Award size={18} /> Puntos</Link>}
                 </div>
