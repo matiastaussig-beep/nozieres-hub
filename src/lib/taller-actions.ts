@@ -64,6 +64,45 @@ export async function abrirOrdenAction(formData: FormData): Promise<void> {
     redirect(`/ordenes/${id}?avisar=recibimos${errorArchivos ? `&aviso=${encodeURIComponent(errorArchivos)}` : ''}`);
 }
 
+/** Recibir el vehículo desde la agenda: abre la orden YA (queda "en proceso"), con los datos del turno, y dispara el aviso "recibimos tu vehículo".
+ *  Después el técnico completa servicios, aceites, fotos y firma dentro de la orden. */
+export async function recibirTurnoAction(turnoId: number, _f?: FormData): Promise<void> {
+    await requirePermiso('ordenes.abrir');
+    const t = db.prepare('SELECT id, vehiculo_id, tecnico, presupuesto_nro, sucursal_id, estado FROM turnos WHERE id = ?').get(turnoId) as
+        { id: number; vehiculo_id: number | null; tecnico: string | null; presupuesto_nro: string | null; sucursal_id: number; estado: string } | undefined;
+    if (!t) throw new Error('El turno no existe.');
+    if (t.estado !== 'en_espera') {
+        const o = db.prepare('SELECT id FROM ordenes_trabajo WHERE turno_id = ? ORDER BY id DESC LIMIT 1').get(turnoId) as { id: number } | undefined;
+        redirect(o ? `/ordenes/${o.id}` : '/agenda');
+    }
+    if (!t.vehiculo_id) throw new Error('El turno no tiene vehículo.');
+    const fd = new FormData();
+    fd.set('vehiculo_id', String(t.vehiculo_id)); fd.set('sucursal_id', String(t.sucursal_id)); fd.set('turno_id', String(t.id));
+    const tecs = String(t.tecnico || '').split(' y ').map(x => x.trim()).filter(Boolean);
+    if (tecs[0]) fd.set('tecnico_1', tecs[0]); if (tecs[1]) fd.set('tecnico_2', tecs[1]);
+    if (t.presupuesto_nro) fd.set('presupuesto_nro', t.presupuesto_nro);
+    await abrirOrdenAction(fd);
+}
+
+/** Completar los datos de una orden ya abierta (servicios, aceites, filtros, fotos). No pide "causa": es parte del trabajo normal. */
+export async function completarOrdenAction(id: number, formData: FormData): Promise<void> {
+    const ses = await requirePermiso('ordenes.abrir');
+    const o = db.prepare('SELECT id, sucursal_id, estado, vehiculo_id FROM ordenes_trabajo WHERE id = ?').get(id) as { id: number; sucursal_id: number; estado: string; vehiculo_id: number } | undefined;
+    if (!o || !puedeVerSucursal(ses, o.sucursal_id)) throw new Error('Orden no encontrada.');
+    if (o.estado !== 'en_proceso') redirect(`/ordenes/${id}`);
+    const d = leerFormOrden(formData);
+    db.prepare(`UPDATE ordenes_trabajo SET kilometraje=?, notas=?, mecanico=?, aceite_utilizado=?, filtros_cambiados=?, proximo_servicio_km=?, proximo_servicio_fecha=?,
+                presupuesto_nro=?, servicios_autos=?, servicios_camioneta=?, servicios_camion=?, complementos=?, observaciones_cliente=?, tecnico_asignado=?,
+                hora_estimada_fin=?, observaciones_tecnicas=?, complementos_adicionales=?, checklist_calidad=? WHERE id=?`)
+        .run(d.kilometraje, d.observaciones_cliente, d.tecnico_asignado, d.aceite, d.filtros, d.proximo_servicio_km, d.proximo_servicio_fecha,
+            d.presupuesto_nro, d.servicios_autos, d.servicios_camioneta, d.servicios_camion, d.complementos, d.observaciones_cliente, d.tecnico_asignado,
+            d.hora_estimada_fin, d.observaciones_tecnicas, d.complementos_adicionales, d.checklist, id);
+    let err = '';
+    try { await adjuntarFotos(formData, id, ses.id); } catch (e: any) { err = e.message || 'No se pudo guardar un archivo'; }
+    revalidatePath('/ordenes'); revalidatePath(`/ordenes/${id}`);
+    redirect(`/ordenes/${id}?completada=1${err ? `&aviso=${encodeURIComponent(err)}` : ''}#firma`);
+}
+
 /** Edición de datos de una orden (queda registrada quién y por qué). */
 export async function editarOrdenAction(id: number, formData: FormData): Promise<void> {
     const ses = await requirePermiso('ordenes.editar');

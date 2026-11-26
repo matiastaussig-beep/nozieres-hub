@@ -46,8 +46,8 @@ interface OrdenTrabajo {
 
 interface TurnoPre { id: number; vehiculo_id: number | null; tecnico: string | null; presupuesto_nro: string | null; motivo: string | null }
 
-export default function OrdenForm({ vehiculos, onSubmit, initialData, sucursalId, tecnicos: listaTecnicos = [], turno }: { vehiculos: Vehiculo[], onSubmit: (formData: FormData) => Promise<void>, initialData?: OrdenTrabajo, sucursalId?: number | null, tecnicos?: string[], turno?: TurnoPre | null }) {
-    const isEditing = !!initialData;
+export default function OrdenForm({ vehiculos, onSubmit, initialData, sucursalId, tecnicos: listaTecnicos = [], turno, completar = false }: { vehiculos: Vehiculo[], onSubmit: (formData: FormData) => Promise<void>, initialData?: OrdenTrabajo, sucursalId?: number | null, tecnicos?: string[], turno?: TurnoPre | null, completar?: boolean }) {
+    const isEditing = !!initialData && !completar;
     const [selectedVehiculoId, setSelectedVehiculoId] = useState(initialData?.vehiculo_id.toString() || turno?.vehiculo_id?.toString() || '');
     // Parseo de campos JSON
     const aceites = initialData?.aceite_utilizado ? JSON.parse(initialData.aceite_utilizado) : null;
@@ -401,7 +401,7 @@ export default function OrdenForm({ vehiculos, onSubmit, initialData, sucursalId
                     Cancelar
                 </Link>
                 <button type="submit" className="btn-primary">
-                    <Save size={18} /> {isEditing ? 'Guardar Cambios' : 'Abrir orden (queda en proceso)'}
+                    <Save size={18} /> {isEditing ? 'Guardar Cambios' : completar ? 'Guardar datos de la orden' : 'Abrir orden (queda en proceso)'}
                 </button>
             </div>
         </form>

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { recibirTurnoAction } from '@/lib/taller-actions';
 import { notFound } from 'next/navigation';
 import db from '@/lib/db';
 import { requireSesion, puedeVerSucursal, can } from '@/lib/auth';
@@ -48,7 +49,7 @@ export default async function TurnoDetalle({ params, searchParams }: { params: P
                 )}
             </div>
             <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>
-                {t.estado === 'en_espera' && can(ses.rol, 'ordenes.abrir') && <Link href={`/ordenes/nueva?turno=${id}`} className="btn-primary">Recibir vehículo (abrir orden)</Link>}
+                {t.estado === 'en_espera' && can(ses.rol, 'ordenes.abrir') && <form action={recibirTurnoAction.bind(null, id)}><button type="submit" className="btn-primary">Recibir vehículo (abrir orden)</button></form>}
                 {t.orden_id && <Link href={`/ordenes/${t.orden_id}`} className="btn-primary">Ver orden #{t.orden_id}</Link>}
                 {editar && t.cliente_id && t.estado === 'en_espera' && <form action={recordarTurnoAction.bind(null, id)}><button className="btn-primary" style={{ background: 'var(--glass-bg)', color: 'white', border: '1px solid var(--glass-border)' }}>Recordar al cliente</button></form>}
                 {editar && t.estado === 'en_espera' && <form action={cancelarTurnoAction.bind(null, id)}><button className="btn-primary" style={{ background: 'rgba(239,68,68,.12)', color: '#f87171', border: '1px solid rgba(239,68,68,.3)' }}>Cancelar turno</button></form>}

@@ -43,6 +43,7 @@ export default async function OrdenDetalle({ params, searchParams }: { params: P
                     <p className="app-subtitle" style={{ marginBottom: 0 }}>{[o.marca, o.modelo].filter(Boolean).join(' ')} · {o.sucursal_nombre}</p>
                 </div>
                 <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>
+                    {abierta && can(ses.rol, 'ordenes.abrir') && <Link href={`/ordenes/${id}/completar`} className="btn-primary"><Edit size={18} /> Completar datos y fotos</Link>}
                     {abierta && can(ses.rol, 'ordenes.cerrar') && <a href="#firma" className="btn-primary"><CheckCircle2 size={18} /> Firma y terminar</a>}
                     <Link href={`/ordenes/${id}/imprimir`} className="btn-primary" style={{ background: 'var(--glass-bg)', color: 'white', border: '1px solid var(--glass-border)' }}><FileText size={18} /> Ficha / imprimir</Link>
                     <Link href={`/ordenes/${id}/caja`} className="btn-primary" style={{ background: 'var(--glass-bg)', color: 'white', border: '1px solid var(--glass-border)' }}><PackageSearch size={18} /> Control de caja</Link>
@@ -51,6 +52,8 @@ export default async function OrdenDetalle({ params, searchParams }: { params: P
                 </div>
             </div>
             {sp.cerrada && <p style={{ color: '#4ade80' }}>✓ Orden terminada{puntos ? ` · se acreditaron ${puntos.puntos} puntos al cliente` : ''}. El aviso al cliente va por mail y por WhatsApp (cartel de arriba).</p>}
+            {sp.avisar === 'recibimos' && abierta && <p style={{ color: '#60a5fa' }}>✓ Orden abierta. Ahora completá los servicios, aceites y fotos con <b>Completar datos y fotos</b>, y al final tomá la firma.</p>}
+            {sp.completada && <p style={{ color: '#4ade80' }}>✓ Datos de la orden guardados. Falta la firma y terminar.</p>}
             {sp.duplicada && <p style={{ color: '#fbbf24' }}>Este vehículo ya tenía una orden abierta: estás viendo esa.</p>}
             {sp.aviso && <p style={{ color: '#fbbf24' }}>⚠️ {sp.aviso}</p>}
 

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { PlusCircle, ChevronLeft, ChevronRight, FileText, Play, Clock, Car } from 'lucide-react';
+import { recibirTurnoAction } from '@/lib/taller-actions';
 import db from '@/lib/db';
 import { requireSesion, sucursalesVisibles, can } from '@/lib/auth';
 import { fechaAR, sumarDias } from '@/lib/tiempo';
@@ -81,7 +82,7 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
                                         <div style={{ display: 'flex', gap: '.4rem', marginTop: '.5rem', flexWrap: 'wrap' }}>
                                             {t.pdfs > 0 && <Link href={`/agenda/${t.id}`} className="btn-primary" style={{ padding: '.25rem .6rem', fontSize: '.78rem' }}><FileText size={12} /> Presupuesto</Link>}
                                             <Link href={`/agenda/${t.id}`} className="btn-primary" style={{ padding: '.25rem .6rem', fontSize: '.78rem', background: 'var(--glass-bg)', color: 'white', border: '1px solid var(--glass-border)' }}>Detalle</Link>
-                                            {t.estado === 'en_espera' && can(ses.rol, 'ordenes.abrir') && <Link href={`/ordenes/nueva?turno=${t.id}`} className="btn-primary" style={{ padding: '.25rem .6rem', fontSize: '.78rem', background: 'rgba(59,130,246,.15)', color: '#60a5fa', border: '1px solid rgba(59,130,246,.35)' }}><Play size={12} /> Recibir</Link>}
+                                            {t.estado === 'en_espera' && can(ses.rol, 'ordenes.abrir') && <form action={recibirTurnoAction.bind(null, t.id)} style={{ display: 'inline' }}><button type="submit" className="btn-primary" style={{ padding: '.25rem .6rem', fontSize: '.78rem', background: 'rgba(59,130,246,.15)', color: '#60a5fa', border: '1px solid rgba(59,130,246,.35)' }}><Play size={12} /> Recibir</button></form>}
                                             {t.orden_id && <Link href={`/ordenes/${t.orden_id}`} className="btn-primary" style={{ padding: '.25rem .6rem', fontSize: '.78rem', background: 'var(--glass-bg)', color: 'white', border: '1px solid var(--glass-border)' }}>Orden #{t.orden_id}</Link>}
                                         </div>
                                     </div>
