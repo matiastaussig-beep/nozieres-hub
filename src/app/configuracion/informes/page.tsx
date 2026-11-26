@@ -73,7 +73,7 @@ export default async function InformesConfig({ searchParams }: { searchParams: P
                     <div className="form-group"><label>Postventa a los (días del cierre)</label><input className="form-input" type="number" name="postventa_dias" defaultValue={T('postventa_dias')} /></div>
                 </div>
                 <p style={{ fontSize: '.78rem', color: 'var(--text-muted)' }}>Variables en los textos: {'{cliente} {vehiculo} {patente} {sucursal} {fecha} {hora} {portal}'}</p>
-                {([['plantilla_recibimos', 'Recibimos tu auto'], ['plantilla_listo', 'Tu auto está listo'], ['plantilla_service', 'Service por vencer'], ['plantilla_turno', 'Recordatorio de turno'], ['plantilla_postventa', 'Consulta postventa']] as const).map(([k, l]) => (
+                {([['plantilla_recibimos', 'Recibimos tu auto'], ['plantilla_listo', 'Tu auto está listo'], ['plantilla_service', 'Service por vencer'], ['plantilla_turno_confirmado', 'Turno confirmado (al agendar)'], ['plantilla_turno', 'Recordatorio de turno'], ['plantilla_postventa', 'Consulta postventa']] as const).map(([k, l]) => (
                     <div className="form-group" key={k}><label>{l}</label><textarea className="form-input" name={k} rows={2} defaultValue={T(k)} /></div>))}
                 <button className="btn-primary" style={{ alignSelf: 'flex-end' }} type="submit">Guardar ajustes</button>
             </form>

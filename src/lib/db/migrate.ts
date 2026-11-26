@@ -216,6 +216,11 @@ const migrations: Array<(db: Database.Database) => void> = [
         c.run('postventa_dias', '3', 'Días después del cierre de la orden en que se hace la consulta postventa');
         c.run('plantilla_postventa', 'Hola {cliente}! Pasaron unos días desde el servicio de tu {vehiculo} ({patente}). ¿Cómo anda? Si algo no quedó bien o tenés alguna consulta, respondé este mensaje. Gracias por elegir Nozieres!', 'Consulta postventa');
     },
+    // v6: aviso de turno confirmado (se manda al agendar)
+    (db) => {
+        db.prepare('INSERT OR IGNORE INTO configuracion (clave, valor, descripcion) VALUES (?,?,?)')
+            .run('plantilla_turno_confirmado', 'Hola {cliente}! Tu turno quedó confirmado: {fecha} a las {hora} en {sucursal} para tu {vehiculo} ({patente}). Te esperamos! Si no podés venir, avisanos por acá.', 'Turno confirmado (al agendar)');
+    },
 ];
 
 export function runMigrations(db: Database.Database) {

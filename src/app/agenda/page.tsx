@@ -4,10 +4,11 @@ import db from '@/lib/db';
 import { requireSesion, sucursalesVisibles, can } from '@/lib/auth';
 import { fechaAR, sumarDias } from '@/lib/tiempo';
 import { ESTADO_CLASE, ESTADO_LABEL } from '@/lib/queries';
+import AvisoWhatsApp from '@/components/AvisoWhatsApp';
 
 export const dynamic = 'force-dynamic';
 
-export default async function AgendaPage({ searchParams }: { searchParams: Promise<{ fecha?: string; ok?: string; error?: string }> }) {
+export default async function AgendaPage({ searchParams }: { searchParams: Promise<{ fecha?: string; ok?: string; error?: string; avisar?: string }> }) {
     const ses = await requireSesion('agenda.ver');
     let avisosPendientes = 0;
     if (ses.rol === 'vendedor' || ses.rol === 'cajera') {
@@ -15,6 +16,9 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
         avisosPendientes = (db.prepare(`SELECT COUNT(*) c FROM mensajes WHERE estado IN ('manual','error') AND tipo != 'informe_diario' AND (sucursal_id IS NULL OR sucursal_id IN (${sc.map(() => '?').join(',')}))`).get(...sc) as { c: number }).c;
     }
     const sp = await searchParams;
+    const avisoTurno = sp.avisar && /^\d+$/.test(sp.avisar)
+        ? db.prepare("SELECT id, destino, cuerpo FROM mensajes WHERE clave_unica = ? AND canal = 'whatsapp' AND estado IN ('manual','pendiente') AND destino IS NOT NULL").get(`turno:${sp.avisar}`) as { id: number; destino: string; cuerpo: string } | undefined
+        : undefined;
     const hoy = fechaAR();
     const fecha = /^\d{4}-\d{2}-\d{2}$/.test(sp.fecha || '') ? sp.fecha! : hoy;
     const sucs = sucursalesVisibles(ses);
@@ -34,6 +38,7 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
 
     return (
         <main className="main-container" style={{ alignItems: 'flex-start', justifyContent: 'flex-start', gap: '1rem' }}>
+            {avisoTurno && <AvisoWhatsApp mensajeId={avisoTurno.id} destino={avisoTurno.destino} cuerpo={avisoTurno.cuerpo} titulo="Confirmale el turno al cliente" />}
             {avisosPendientes > 0 && (
                 <Link href="/mensajes" className="card" style={{ width: '100%', borderColor: '#f59e0b', display: 'flex', alignItems: 'center', gap: '.8rem' }}>
                     <span style={{ fontSize: '1.4rem' }}>💬</span>

@@ -94,10 +94,11 @@ export async function cerrarOrdenAction(id: number, formData: FormData): Promise
     if (!o || !puedeVerSucursal(ses, o.sucursal_id)) throw new Error('Orden no encontrada.');
     if (o.estado === 'terminada') redirect(`/ordenes/${id}`);
 
+    // La firma única se toma antes, en la pantalla de la orden. Si el cliente no pudo firmar, se registra el motivo.
     const firma = String(formData.get('firma_cliente') || '');
     const motivoSinFirma = String(formData.get('sin_firma_motivo') || '').trim();
-    const png = dataUrlAPng(firma);
-    if (!png && !motivoSinFirma) redirect(`/ordenes/${id}/cerrar?error=firma`);
+    const png = dataUrlAPng(firma);   // compatibilidad: si llega una firma en este formulario, también se guarda
+    if (!png && !o.firma_cliente && !motivoSinFirma) redirect(`/ordenes/${id}?error=firma#cierre`);
 
     const hoy = fechaAR();
     const proxFecha = String(formData.get('proximo_servicio_fecha') || '').trim() || o.proximo_servicio_fecha || sumarMeses(hoy, Number(cfg('proximo_service_meses', '6')) || 6);
@@ -114,7 +115,7 @@ export async function cerrarOrdenAction(id: number, formData: FormData): Promise
     } catch { /* la foto de salida es opcional */ }
 
     db.transaction(() => {
-        db.prepare(`UPDATE ordenes_trabajo SET estado='terminada', cerrada_at=?, cerrada_por=?, hora_fin_real=?, firma_cliente=?, firma_at=?, kilometraje=?,
+        db.prepare(`UPDATE ordenes_trabajo SET estado='terminada', cerrada_at=?, cerrada_por=?, hora_fin_real=?, firma_cliente=COALESCE(?, firma_cliente), firma_at=COALESCE(?, firma_at), kilometraje=?,
                     proximo_servicio_fecha=?, proximo_servicio_km=?, observaciones_tecnicas = CASE WHEN ? != '' THEN ? ELSE observaciones_tecnicas END,
                     notas = CASE WHEN ? != '' THEN COALESCE(notas,'') || CASE WHEN notas IS NULL OR notas = '' THEN '' ELSE ' | ' END || 'Sin firma: ' || ? ELSE notas END
                     WHERE id=? AND estado != 'terminada'`)
@@ -131,9 +132,24 @@ export async function cerrarOrdenAction(id: number, formData: FormData): Promise
 /** Desde el cartel "Avisale al cliente por WhatsApp" que aparece al abrir o cerrar una orden. Cualquier rol que trabaja la orden puede marcarlo. */
 export async function marcarAvisoOrdenAction(mensajeId: number, estado: 'enviado' | 'descartado'): Promise<void> {
     const ses = await requirePermiso('ordenes.abrir');
-    const m = db.prepare("SELECT id, sucursal_id, tipo FROM mensajes WHERE id = ? AND canal = 'whatsapp' AND tipo IN ('recibimos_auto','auto_listo')").get(mensajeId) as { id: number; sucursal_id: number | null; tipo: string } | undefined;
+    const m = db.prepare("SELECT id, sucursal_id, tipo FROM mensajes WHERE id = ? AND canal = 'whatsapp' AND tipo IN ('recibimos_auto','auto_listo','turno_confirmado')").get(mensajeId) as { id: number; sucursal_id: number | null; tipo: string } | undefined;
     if (!m || !puedeVerSucursal(ses, m.sucursal_id)) return;
     if (estado === 'enviado') db.prepare("UPDATE mensajes SET estado = 'enviado', enviado_at = datetime('now') WHERE id = ?").run(m.id);
     else db.prepare("UPDATE mensajes SET estado = 'descartado' WHERE id = ?").run(m.id);
     revalidatePath('/mensajes');
+}
+
+
+/** Firma única del cliente, en la pantalla de la orden (paso 2), antes de terminarla. */
+export async function firmarOrdenAction(id: number, formData: FormData): Promise<void> {
+    const ses = await requirePermiso('ordenes.cerrar');
+    const o = db.prepare('SELECT id, sucursal_id, estado FROM ordenes_trabajo WHERE id = ?').get(id) as { id: number; sucursal_id: number; estado: string } | undefined;
+    if (!o || !puedeVerSucursal(ses, o.sucursal_id)) throw new Error('Orden no encontrada.');
+    if (o.estado === 'terminada') redirect(`/ordenes/${id}`);
+    const png = dataUrlAPng(String(formData.get('firma_cliente') || ''));
+    if (!png) redirect(`/ordenes/${id}?error=firma#firma`);
+    const aid = guardarBuffer(png, 'png', 'image/png', 'firma.png', 'firma', { ordenId: id }, ses.id);
+    db.prepare('UPDATE ordenes_trabajo SET firma_cliente = ?, firma_at = ? WHERE id = ?').run(`/api/archivos/${aid}`, new Date().toISOString(), id);
+    revalidatePath(`/ordenes/${id}`);
+    redirect(`/ordenes/${id}?firmada=1#cierre`);
 }

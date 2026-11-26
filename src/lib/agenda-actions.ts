@@ -14,8 +14,29 @@ export async function crearTurnoAction(formData: FormData): Promise<void> {
     const fecha = String(formData.get('fecha') || '');
     const hora = String(formData.get('hora') || '');
     if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) redirect('/agenda/nuevo?error=fecha');
-    const vehiculo_id = Number(formData.get('vehiculo_id')) || null;
+    let vehiculo_id = Number(formData.get('vehiculo_id')) || null;
     let cliente_id = Number(formData.get('cliente_id')) || null;
+    // Cliente y/o vehículo nuevos cargados en la misma pantalla de la agenda
+    if (String(formData.get('es_nuevo') || '') === '1') {
+        const patente = String(formData.get('nuevo_patente') || '').toUpperCase().replace(/\s+/g, '');
+        const nombre = String(formData.get('nuevo_nombre') || '').trim();
+        const telefono = String(formData.get('nuevo_telefono') || '').trim();
+        if (!patente) redirect('/agenda/nuevo?error=patente');
+        const existente = db.prepare('SELECT id FROM vehiculos WHERE patente = ?').get(patente) as { id: number } | undefined;
+        if (existente) vehiculo_id = existente.id;   // el dominio ya está cargado: se usa su titular actual
+        else {
+            if (!nombre || !telefono) redirect('/agenda/nuevo?error=cliente');
+            db.transaction(() => {
+                const dni = String(formData.get('nuevo_dni') || '').trim() || null;
+                const email = String(formData.get('nuevo_email') || '').trim() || null;
+                const cid = Number(db.prepare('INSERT INTO clientes (nombre, dni, telefono, email) VALUES (?,?,?,?)').run(nombre, dni, telefono, email).lastInsertRowid);
+                const vid = Number(db.prepare('INSERT INTO vehiculos (patente, marca, modelo, cliente_id, tipo_vehiculo) VALUES (?,?,?,?,?)')
+                    .run(patente, String(formData.get('nuevo_marca') || '').trim() || null, String(formData.get('nuevo_modelo') || '').trim() || null, cid, String(formData.get('nuevo_tipo') || 'Auto')).lastInsertRowid);
+                db.prepare("INSERT INTO vehiculo_propietarios (vehiculo_id, cliente_id, desde, motivo) VALUES (?, ?, date('now','-3 hours'), 'alta')").run(vid, cid);
+                vehiculo_id = vid;
+            })();
+        }
+    }
     if (vehiculo_id) {
         const v = db.prepare('SELECT cliente_id FROM vehiculos WHERE id = ?').get(vehiculo_id) as { cliente_id: number } | undefined;
         if (v) cliente_id = v.cliente_id;   // el cliente siempre es el titular actual del vehículo
@@ -30,8 +51,14 @@ export async function crearTurnoAction(formData: FormData): Promise<void> {
     if (pdf instanceof File && pdf.size > 0) {
         try { await guardarArchivo(pdf, 'presupuesto_pdf', { turnoId: id }, ses.id); } catch (e: any) { redirect(`/agenda/${id}?aviso=${encodeURIComponent(e.message)}`); }
     }
-    revalidatePath('/agenda');
-    redirect(`/agenda?fecha=${fecha}&ok=1`);
+    // Aviso "turno confirmado": cartel de WhatsApp para mandarlo en el momento (y mail automático)
+    let avisar = '';
+    if (cliente_id) {
+        encolarMensajeCliente('turno_confirmado', { cliente_id, turno_id: id, sucursal_id, fecha, hora: hora || null, vehiculo_id }, `turno:${id}`);
+        avisar = `&avisar=${id}`;
+    }
+    revalidatePath('/agenda'); revalidatePath('/clientes'); revalidatePath('/vehiculos');
+    redirect(`/agenda?fecha=${fecha}&ok=1${avisar}`);
 }
 
 export async function adjuntarPresupuestoTurnoAction(turnoId: number, formData: FormData): Promise<void> {
