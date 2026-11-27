@@ -13,7 +13,7 @@ export default async function ConfiguracionPage() {
 
     return (
         <main className="main-container" style={{ alignItems: 'flex-start', justifyContent: 'flex-start' }}>
-            <div style={{ display: 'flex', gap: '.6rem', flexWrap: 'wrap', marginBottom: '1rem' }}><a className="badge" href="/configuracion/usuarios">👤 Usuarios y roles</a><a className="badge" href="/configuracion/informes">📨 Informes y mensajes</a><a className="badge" href="/mensajes">💬 Bandeja de mensajes</a></div>
+            <div style={{ display: 'flex', gap: '.6rem', flexWrap: 'wrap', marginBottom: '1rem' }}><a className="badge" href="/configuracion/usuarios">👤 Usuarios y roles</a><a className="badge" href="/configuracion/informes">📨 Informes y mensajes</a><a className="badge" href="/mensajes">💬 Bandeja de mensajes</a><a className="badge" href="/configuracion/importar">📥 Importar del sistema anterior</a></div>
             <div className="page-header" style={{ width: '100%' }}>
                 <div>
                     <h1 className="page-title">Configuración del Sistema</h1>
