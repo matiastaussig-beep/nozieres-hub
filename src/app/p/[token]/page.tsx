@@ -25,7 +25,10 @@ export default async function Portal({ params }: { params: Promise<{ token: stri
             <section className="card" style={{ textAlign: 'center', marginBottom: '1rem' }}>
                 <div style={{ fontSize: '.8rem', color: '#9ca3af' }}>Tus puntos Nozieres</div>
                 <div style={{ fontSize: '2.6rem', fontWeight: 800, color: '#fbbf24' }}>⭐ {d.puntos.toLocaleString('es-AR')}</div>
-                <div style={{ fontSize: '.8rem', color: '#9ca3af' }}>Canjealos en cualquiera de nuestras sucursales.</div>
+                {d.canjeMinimo > 0 && (<div style={{ margin: '.6rem auto 0', maxWidth: 320 }}>
+                    <div style={{ height: 8, borderRadius: 4, background: '#ffffff1a', overflow: 'hidden' }}><div style={{ width: `${Math.min(100, Math.round(d.puntos / d.canjeMinimo * 100))}%`, height: '100%', background: '#fbbf24' }} /></div>
+                    <div style={{ fontSize: '.78rem', color: '#9ca3af', marginTop: 4 }}>{d.puntos >= d.canjeMinimo ? '¡Ya podés canjear tus puntos!' : `Te faltan ${(d.canjeMinimo - d.puntos).toLocaleString('es-AR')} puntos para poder canjear`}</div></div>)}
+                <div style={{ fontSize: '.8rem', color: '#9ca3af', marginTop: '.4rem' }}>Canjealos en cualquiera de nuestras sucursales.</div>
             </section>
             {await Promise.all(d.vehiculos.map(async v => {
                 const cert = v.actual && v.cert_token && base ? await QRCode.toDataURL(`${base}/v/${v.cert_token}`, { margin: 1, width: 160 }) : null;
@@ -37,6 +40,7 @@ export default async function Portal({ params }: { params: Promise<{ token: stri
                                 {!v.actual && <div style={{ fontSize: '.78rem', color: '#fbbf24' }}>Ya no es tuyo (hasta {fechaCorta(v.hasta)}). Se muestra sólo el historial de tu período.</div>}</div>
                             {cert && <div style={{ textAlign: 'center' }}>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={cert} alt="QR certificado" width={80} height={80} style={{ background: '#fff', borderRadius: 6 }} /><div style={{ fontSize: '.65rem', color: '#9ca3af' }}>Certificado</div></div>}
                         </div>
+                        {v.actual && v.historial[0]?.proximo_fecha && <div style={{ background: '#fbbf2415', border: '1px solid #fbbf2455', borderRadius: 8, padding: '.5rem .7rem', margin: '.6rem 0', fontSize: '.85rem' }}>🔧 Próximo service: <b>{fechaCorta(v.historial[0].proximo_fecha)}</b>{v.historial[0].proximo_km ? ` o ${v.historial[0].proximo_km.toLocaleString('es-AR')} km` : ''}</div>}
                         {v.actual && v.cert_token && <p style={{ fontSize: '.78rem', color: '#9ca3af', margin: '.5rem 0' }}>Si vendés el vehículo, compartí su <a href={`/v/${v.cert_token}`} style={{ color: '#fbbf24' }}>certificado de historial</a>: el próximo dueño lo hereda.</p>}
                         {v.historial.length ? v.historial.map(h => (
                             <div key={h.id} style={{ borderTop: '1px solid #ffffff1a', padding: '.6rem 0' }}>

@@ -30,7 +30,8 @@ export function datosPortalCliente(token: string) {
         // El titular actual ve TODA la historia del dominio; un titular anterior sólo ve la de su período
         historial: p.hasta ? historialVehiculo(p.vehiculo_id, p.desde, p.hasta) : historialVehiculo(p.vehiculo_id),
     }));
-    return { cliente: c, puntos, movimientos, vehiculos };
+    const cfgp = db.prepare('SELECT puntos_minimos_canje m, canje_habilitado h FROM configuracion_puntos WHERE id = 1').get() as { m: number; h: number } | undefined;
+    return { cliente: c, puntos, movimientos, vehiculos, canjeMinimo: cfgp?.h ? (cfgp.m || 500) : 0 };
 }
 
 export function datosCertificado(token: string) {
